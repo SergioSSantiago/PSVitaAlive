@@ -1,0 +1,50 @@
+{
+  "id": "azahar-emulator-alpha",
+  "title_id": "AZAHARPSV",
+  "name": "Azahar Emulator (ALPHA)",
+  "description": "3DS Emulator from Ps Vita",
+  "long_description": "3DS Emulator from Ps Vita",
+  "author_ids": [
+    "grarak"
+  ],
+  "category_id": "emulators",
+  "subcategory_ids": [
+    "other"
+  ],
+  "version": "0.1.0",
+  "version_date": "2026-09-12",
+  "requirements": "- Install both skprx files (azaharnative and CapUnlocker) to the KERNEL section in your config.txt\n- Put your decrypted ROMs in ux0:/data/azahar/roms\n- Set your CPU to 500MHz before launching a game",
+  "size": 8493466,
+  "status": "Verified",
+  "links": [
+    {
+      "type": "Download",
+      "name": "VPK",
+      "url": "https://archive.org/download/azahar-vita-/azahar_vita%200.1.0.vpk",
+      "size": 8493466,
+      "recommended": true
+    },
+    {
+      "type": "Plugin",
+      "name": "azaharnative.skprx",
+      "url": "https://archive.org/download/azahar-vita-/azaharnative.skprx",
+      "size": 24269,
+      "extract_path": "ur0:tai/",
+      "section": "*KERNEL",
+      "line": "ur0:tai/azaharnative.skprx"
+    },
+    {
+      "type": "Plugin",
+      "name": "CapUnlocker 1.4",
+      "url": "https://archive.org/download/azahar-vita-/CapUnlocker.skprx",
+      "size": 5222,
+      "extract_path": "ur0:tai/",
+      "section": "*KERNEL",
+      "line": "ur0:tai/CapUnlocker.skprx"
+    }
+  ],
+  "icon": "https://archive.org/download/azahar-vita-/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/azahar-vita-/Shot0.png"
+  ]
+}
