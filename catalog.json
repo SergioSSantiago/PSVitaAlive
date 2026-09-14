@@ -1,5 +1,110 @@
 [
   {
+    "id": "asphalt-8",
+    "title_id": "ASPHALT20",
+    "name": "Asphalt 8 Vita",
+    "description": "Native compatibility port of Asphalt 8 Android v2.0.0e for PlayStation Vita. Data-free; users supply exact game files.",
+    "long_description": "A port of the Android version of Asphalt 8 v2.0.0e for PS Vita\nIt uses the original ARMv7 Android game library, with so_util, FalsoJNI and VitaGL.\nRaces, menus, saving, physical controls and touch are working\nPerformance runs in the high 50s during races",
+    "author_ids": [
+      "spliffcurrybeats"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "arcade",
+      "racing"
+    ],
+    "version": "0.3",
+    "version_date": "2026-09-13",
+    "requirements": "- Homebrew enabled PS Vita with VitaShell - kubridge.skprx installed - libshacccg.suprx at ur0:/data/libshacccg.suprx or ur0:/data/external/libshacccg.suprx - Your own Asphalt 8 v2.0.0e APK and OBB",
+    "size": 2516582,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/asphalt-8-psvita/Asphalt8Vita%20v0.3.vpk",
+        "size": 3565158,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Data Files ZIP - Mediafire",
+        "url": "https://www.mediafire.com/file/w1lqvp8lfxnk9q0/asphalt8_game_data.zip/file",
+        "size": 1500017328,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Data Files ZIP",
+        "url": "https://archive.org/download/asphalt-8-psvita/asphalt8%20game%20data.zip",
+        "size": 1610612736,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Mod",
+        "name": "All Cars MAX/PRO FIXED",
+        "url": "https://archive.org/download/asphalt-8-psvita/Mod%20-%20All%20Cars%20MAX%20-%20PRO%20FIXED.zip",
+        "size": 78950,
+        "extract_path": "ux0:data/asphalt8/internal/"
+      },
+      {
+        "type": "Repository",
+        "name": "GitLab",
+        "url": "https://gitlab.com/sexcurrybeats/asphalt8-vita/"
+      }
+    ],
+    "icon": "https://archive.org/download/asphalt-8-psvita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/asphalt-8-psvita/bg0.png"
+    ]
+  },
+  {
+    "id": "n-o-v-a-3-vita",
+    "title_id": "NOVA30001",
+    "name": "N.O.V.A. 3 Vita",
+    "description": "N.O.V.A. 3 Android v1.0.7 for PlayStation Vita.",
+    "long_description": "N.O.V.A. 3 Android v1.0.7 for PlayStation Vita.",
+    "author_ids": [
+      "spliffcurrybeats"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "action",
+      "fps",
+      "shooter"
+    ],
+    "version": "0.1",
+    "version_date": "2026-09-13",
+    "requirements": "- kubridge and libshacccg.suprx installed\n- Your own exact supported Android 1.0.7 APK and both OBB files\n- Approximately 3.4 GB for prepared game data, plus space for the VPK and runtime caches",
+    "size": 2516582,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/n.o.v.a.-3-vita/NOVA3Vita_v0.1.vpk",
+        "size": 2516582,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/n.o.v.a.-3-vita/Game%20Files.zip",
+        "size": 3328599654,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "GitLab",
+        "url": "https://gitlab.com/sexcurrybeats/nova3-vita"
+      }
+    ],
+    "icon": "https://archive.org/download/n.o.v.a.-3-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/n.o.v.a.-3-vita/shot0.png"
+    ]
+  },
+  {
     "id": "azahar-emulator-alpha",
     "title_id": "AZAHARPSV",
     "name": "Azahar Emulator (ALPHA)",
@@ -1370,64 +1475,6 @@
     "screenshots": [
       "https://archive.org/download/duskligth-ps-vita/bg.png",
       "https://archive.org/download/duskligth-ps-vita/0.jpg"
-    ]
-  },
-  {
-    "id": "asphalt-8",
-    "title_id": "ASPHALT20",
-    "name": "Asphalt 8 Vita",
-    "description": "Native compatibility port of Asphalt 8 Android v2.0.0e for PlayStation Vita. Data-free; users supply exact game files.",
-    "long_description": "A port of the Android version of Asphalt 8 v2.0.0e for PS Vita\nIt uses the original ARMv7 Android game library, with so_util, FalsoJNI and VitaGL.\nRaces, menus, saving, physical controls and touch are working\nPerformance runs in the high 50s during races",
-    "author_ids": [
-      "spliffcurrybeats"
-    ],
-    "category_id": "ports",
-    "subcategory_ids": [
-      "arcade",
-      "racing"
-    ],
-    "version": "0.2",
-    "version_date": "2026-08-23",
-    "requirements": "- Homebrew enabled PS Vita with VitaShell - kubridge.skprx installed - libshacccg.suprx at ur0:/data/libshacccg.suprx or ur0:/data/external/libshacccg.suprx - Your own Asphalt 8 v2.0.0e APK and OBB",
-    "size": 2058355,
-    "status": "Verified",
-    "links": [
-      {
-        "type": "Download",
-        "name": "VPK",
-        "url": "https://www.mediafire.com/file/4u8khqdm0shpfyd/Asphalt8Vita_v0.2.vpk/file",
-        "recommended": true
-      },
-      {
-        "type": "Game Files",
-        "name": "Game Data Files ZIP - Mediafire",
-        "url": "https://www.mediafire.com/file/w1lqvp8lfxnk9q0/asphalt8_game_data.zip/file",
-        "size": 1500017328,
-        "extract_path": "ux0:data/"
-      },
-      {
-        "type": "Game Files",
-        "name": "Game Data Files ZIP",
-        "url": "https://archive.org/download/asphalt-8-psvita/asphalt8%20game%20data.zip",
-        "size": 1500017328,
-        "extract_path": "ux0:data/"
-      },
-      {
-        "type": "Mod",
-        "name": "All Cars MAX/PRO FIXED",
-        "url": "https://archive.org/download/asphalt-8-psvita/Mod%20-%20All%20Cars%20MAX%20-%20PRO%20FIXED.zip",
-        "size": 78950,
-        "extract_path": "ux0:data/asphalt8/internal/"
-      },
-      {
-        "type": "Repository",
-        "name": "GitLab VPK + Tools",
-        "url": "https://gitlab.com/sexcurrybeats/asphalt8-vita/-/releases/v0.2/downloads/Asphalt8Vita_v0.2.zip"
-      }
-    ],
-    "icon": "https://archive.org/download/asphalt-8-psvita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/asphalt-8-psvita/bg0.png"
     ]
   },
   {
