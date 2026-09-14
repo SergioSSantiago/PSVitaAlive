@@ -1,0 +1,46 @@
+{
+  "id": "n-o-v-a-3-vita",
+  "title_id": "NOVA30001",
+  "name": "N.O.V.A. 3 Vita",
+  "description": "N.O.V.A. 3 Android v1.0.7 for PlayStation Vita.",
+  "long_description": "N.O.V.A. 3 Android v1.0.7 for PlayStation Vita.",
+  "author_ids": [
+    "spliffcurrybeats"
+  ],
+  "category_id": "ports",
+  "subcategory_ids": [
+    "action",
+    "fps",
+    "shooter"
+  ],
+  "version": "0.1",
+  "version_date": "2026-09-13",
+  "requirements": "- kubridge and libshacccg.suprx installed\n- Your own exact supported Android 1.0.7 APK and both OBB files\n- Approximately 3.4 GB for prepared game data, plus space for the VPK and runtime caches",
+  "size": 2516582,
+  "status": "Verified",
+  "links": [
+    {
+      "type": "Download",
+      "name": "VPK",
+      "url": "https://archive.org/download/n.o.v.a.-3-vita/NOVA3Vita_v0.1.vpk",
+      "size": 2516582,
+      "recommended": true
+    },
+    {
+      "type": "Game Files",
+      "name": "Game Files",
+      "url": "https://archive.org/download/n.o.v.a.-3-vita/Game%20Files.zip",
+      "size": 3328599654,
+      "extract_path": "ux0:data/"
+    },
+    {
+      "type": "Repository",
+      "name": "GitLab",
+      "url": "https://gitlab.com/sexcurrybeats/nova3-vita"
+    }
+  ],
+  "icon": "https://archive.org/download/n.o.v.a.-3-vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/n.o.v.a.-3-vita/shot0.png"
+  ]
+}
