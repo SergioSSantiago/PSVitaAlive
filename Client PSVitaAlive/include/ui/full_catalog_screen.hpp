@@ -26,7 +26,9 @@ enum class LocalInstallState {
     Unknown = 0,
     NotInstalled,
     Installed,
-    UpdateAvailable
+    UpdateAvailable,
+    /** Present on disk but release identity not proven (nightly/fork/unknown SFO). */
+    InstalledUnknown
 };
 
 struct LocalInstallInfo {
@@ -68,11 +70,9 @@ public:
     void setSettingsSaveCallback(SettingsSaveFn callback);
     void openSettings();
     void closeSettings(bool save);
-    /** Fetch news.txt after startup (or reopen from footer). Non-blocking failure. */
     void runNewsCheck(bool forceShow);
     bool isNewsVisible() const { return newsVisible_; }
     bool isNewsCheckDone() const { return newsCheckedOnce_; }
-    /** First-run color theme picker (before News). */
     void openThemeSetupIfNeeded();
     void openThemePicker();
     bool isThemeSetupVisible() const { return themeSetupVisible_; }
@@ -80,9 +80,7 @@ public:
     bool isEssentialPluginsInstalling() const { return essentialInstallRunning_; }
     bool essentialPluginsPromptDone() const { return essentialPluginsPromptDone_; }
     bool isPluginRebootModal() const { return pluginRebootModal_; }
-    /** After theme + news: offer missing kubridge / fd_fix / libshacccg if needed. */
     void tryShowEssentialPluginsPrompt();
-    // outcome: 0 = progress, 1 = success, 2 = error
     void setInstallProgress(bool active, uint64_t current, uint64_t total, uint64_t bytesPerSecond,
                             const std::string& stage, const std::string& fileName,
                             const std::string& message,
@@ -96,8 +94,7 @@ public:
 private:
     UiState state_;
     std::vector<CatalogItem> allItems_;
-    std::vector<CatalogItem> items_; // filtered only when searchQuery_ non-empty
-    /** Browse list: allItems_ when not searching (avoids 2x RAM on large catalogs). */
+    std::vector<CatalogItem> items_;
     const std::vector<CatalogItem>& catalogView() const {
         return (searchQuery_.empty() && !dataFilesFilter_) ? allItems_ : items_;
     }
@@ -113,57 +110,42 @@ private:
     LinkActionFn linkAction_;
     ImageCache* imageCache_ = nullptr;
     ::psvitaalive::ui::UiFont font_;
-    /** Full-screen splash while catalogs download/load at startup (app0:ui/catalog_loading.png). */
     vita2d_texture* catalogLoadingTex_ = nullptr;
-    /** Monochrome splash for non-brand theme tinting. */
     vita2d_texture* catalogLoadingMonoTex_ = nullptr;
-    /** Header brand image (app0:ui/PSVitaAlive_Store_logo_text.png). */
     vita2d_texture* headerLogoTex_ = nullptr;
-    /** Monochrome header logo for non-brand theme tinting. */
     vita2d_texture* headerLogoMonoTex_ = nullptr;
-    /** 1 = show splash, animates to 0 when catalog load ends. */
     float catalogSplashAlpha_ = 0.f;
     bool ready_ = false;
-
     std::string searchQuery_;
-    /** When true, catalogView only includes apps with G/D Files (Homebrew) or DLC (Vita/PSP). */
     bool dataFilesFilter_ = false;
-
     bool catalogLoading_ = false;
     std::unordered_map<std::string, LocalInstallInfo> installStatusCache_;
     std::string catalogLoadingLabel_;
     std::string catalogLoadingMessage_;
     uint64_t catalogLoadingCurrent_ = 0;
     uint64_t catalogLoadingTotal_ = 0;
-    // Do not touch ux0:app while catalogs/splash are settling.
     uint64_t installStatusWarmupUntilMs_ = 0;
     std::string catalogError_;
-
     bool installProgressActive_ = false;
-    /** After Plugin install(s): force reboot dialog (blocks LiveArea exit). */
     bool pluginRebootModal_ = false;
     bool installAllHadPlugin_ = false;
-
-    // Startup: recommend missing critical plugins (kubridge, fd_fix, libshacccg)
     bool essentialPluginsModal_ = false;
     bool essentialPluginsPromptDone_ = false;
-    int essentialPluginsFocus_ = 0; // 0 = Install, 1 = Remind later
-
-    // First PSP/PS1 download: install method wizard (once).
+    int essentialPluginsFocus_ = 0;
     bool pspSetupModal_ = false;
-    int pspSetupFocus_ = 0; // 0 LiveArea, 1 Adrenaline, 2 Folder, 3 ISO, 4 Confirm, 5 Cancel
+    int pspSetupFocus_ = 0;
     ::psvitaalive::PspTarget pspSetupTarget_ = ::psvitaalive::PspTarget::Adrenaline;
     ::psvitaalive::PspMediaFormat pspSetupMedia_ = ::psvitaalive::PspMediaFormat::Folder;
     bool pspSetupPendingInstallAll_ = false;
     int pspSetupPendingItemIndex_ = -1;
-    int pspSetupPendingLinkIndex_ = -1; // index into item.linkDetails
+    int pspSetupPendingLinkIndex_ = -1;
     struct EssentialPluginSpec {
         std::string name;
         std::string desc;
         std::string url;
         std::string extractPath;
-        std::string section; // "*KERNEL" or "none"
-        std::string line;    // config line / dest basename hint
+        std::string section;
+        std::string line;
         std::vector<std::string> checkPaths;
     };
     std::vector<EssentialPluginSpec> essentialMissing_;
@@ -171,7 +153,6 @@ private:
     size_t essentialInstallIndex_ = 0;
     bool essentialInstallRunning_ = false;
     int essentialInstallLastOutcome_ = -1;
-
     uint64_t installProgressCurrent_ = 0;
     uint64_t installProgressTotal_ = 0;
     uint64_t installProgressSpeed_ = 0;
@@ -179,16 +160,11 @@ private:
     std::string installProgressFile_;
     std::string installProgressMessage_;
     int installOutcome_ = 0;
-    uint64_t installResultAutoCloseMs_ = 0; // 0 progress, 1 success, 2 error
+    uint64_t installResultAutoCloseMs_ = 0;
     bool installLiveAreaOk_ = false;
     std::string installResultPath_;
     std::string installResultTitleId_;
-
-    // Preserves the normal detail position while the temporary link-navigation
-    // viewport is active.
     int detailScrollBeforeLinkMode_ = 0;
-
-    /** One rendered line of the News modal (Markdown-lite). */
     struct NewsDrawLine {
         std::string text;
         float scale = 0.55f;
@@ -199,8 +175,6 @@ private:
         bool isBlank = false;
         bool emphasize = false;
     };
-
-    // News modal state.
     bool newsVisible_ = false;
     bool newsCheckedOnce_ = false;
     int newsFetchAttempts_ = 0;
@@ -211,30 +185,24 @@ private:
     std::vector<NewsDrawLine> newsLines_;
     int newsScrollLine_ = 0;
     float visualNewsScroll_ = 0.f;
-
-    // First-run theme setup modal (once, before News).
     bool themeSetupVisible_ = false;
     bool themeSetupChecked_ = false;
-    int themeSetupFocus_ = 0;          // 0..Count-1 themes, Count = Save
+    int themeSetupFocus_ = 0;
     int themeSetupScrollRow_ = 0;
-    int themeSetupAppliedFocus_ = -1; // last previewed theme index (-1 = none)
+    int themeSetupAppliedFocus_ = -1;
     float visualThemeSetupScroll_ = 0.f;
-
     std::unordered_map<std::string, vita2d_texture*> textures_;
     std::vector<std::string> textureOrder_;
-    /** Freed one frame later so the GPU is done with the previous swap. */
     std::vector<vita2d_texture*> deferredFreeTextures_;
     int catalogSwitchCooldownFrames_ = 0;
     uint64_t lastCatalogSwitchMs_ = 0;
-    // Front-touch navigation (works alongside buttons)
     bool touchDown_ = false;
     int touchStartX_ = 0;
     int touchStartY_ = 0;
     int touchLastY_ = 0;
     bool touchMoved_ = false;
     uint64_t touchDownMs_ = 0;
-    float touchAccumY_ = 0.f; // residual drag for less-sensitive scroll
-    // Smooth motion / feedback
+    float touchAccumY_ = 0.f;
     float visualCatalogScroll_ = 0.f;
     float visualDetailScroll_ = 0.f;
     float visualFocusIndex_ = 0.f;
@@ -246,7 +214,6 @@ private:
     std::string toastMessage_;
     uint64_t toastExpiresMs_ = 0;
     uint64_t toastShownMs_ = 0;
-
     void handleInput();
     void handleTouch();
     void draw();
@@ -281,7 +248,6 @@ private:
     void applyPspLiveAreaPluginGateOrRun(bool forInstallAll, int itemIndex, int linkDetailIndex);
     void kickNextEssentialPluginInstall();
     void essentialPluginsTryAdvanceFromProgress(int outcome);
-
     void openInstallAllWizard();
     void closeInstallAllWizard(bool cancel);
     void installAllAdvancePick();
@@ -304,11 +270,9 @@ private:
     void releaseScreenshotTextures();
     void scheduleTextureFree(vita2d_texture* texture);
     void flushDeferredTextureFrees();
-    /** Free GPU textures whose disk path is not in keep (visible set). */
     void releaseTexturesNotIn(const std::unordered_set<std::string>& keep);
     void touchTexture(const std::string& path);
     void evictTextureIfNeeded(const std::string& namespaceName);
-
     void startOpeningDetail();
     void startClosingDetail();
     void updateTransition();
@@ -336,21 +300,18 @@ private:
     void triggerSelfUpdateAction();
     void pollSelfUpdateProgress();
     static int selfUpdateWorkerEntry(SceSize args, void* argp);
-
     ::psvitaalive::AppSettingsData settingsEdit_{};
     ::psvitaalive::PluginStatus pluginsStatus_{};
     SettingsSaveFn settingsSave_;
     int settingsFocus_ = 0;
     UiMode settingsReturnMode_ = UiMode::FULL_CATALOG;
-    float settingsEnter_ = 1.f;   // 0..1 open transition
-    float settingsFocusY_ = 0.f;  // animated highlight Y
-    float settingsScrollY_ = 0.f; // adaptive list scroll (px)
-    float settingsInfoScrollY_ = 0.f; // INFO panel text scroll (px)
+    float settingsEnter_ = 1.f;
+    float settingsFocusY_ = 0.f;
+    float settingsScrollY_ = 0.f;
+    float settingsInfoScrollY_ = 0.f;
     float settingsInfoMaxScroll_ = 0.f;
-
-    // Discord error report UI (webhook)
     bool reportConfirmVisible_ = false;
-    int reportUiState_ = 0;          // 0 idle, 1 sending, 2 sent, 3 failed
+    int reportUiState_ = 0;
     uint64_t reportUiUntilMs_ = 0;
     char reportUiMsg_[48] = {};
     std::string reportTitle_;
@@ -371,8 +332,6 @@ private:
     void drawReportConfirmOverlay();
     void openReportConfirm();
     void closeReportConfirm();
-
-    // Request Data/Game Files (Discord webhook, detail panel)
     bool dataRequestConfirmVisible_ = false;
     std::atomic<bool> dataRequestBusy_{false};
     std::atomic<bool> dataRequestDone_{false};
@@ -390,30 +349,19 @@ private:
     void trySendDataRequest();
     void pollDataRequestWorker();
     bool itemEligibleForDataRequest(const CatalogItem& item) const;
-
-    // Install All (VPK + Game Files + Data Files) wizard + sequential queue
-    enum class InstallAllPhase {
-        Hidden = 0,
-        Confirm,
-        PickDownload,
-        PickGameFiles,
-        PickDataFiles,
-        Running
-    };
+    enum class InstallAllPhase { Hidden = 0, Confirm, PickDownload, PickGameFiles, PickDataFiles, Running };
     InstallAllPhase installAllPhase_ = InstallAllPhase::Hidden;
-    int installAllFocus_ = 0;              // focus inside current wizard list / buttons
-    int installAllItemIndex_ = -1;         // index into catalogView() when wizard opened
-    std::vector<int> installAllOptions_;   // linkDetail indices for current pick phase
+    int installAllFocus_ = 0;
+    int installAllItemIndex_ = -1;
+    std::vector<int> installAllOptions_;
     int installAllChosenDownload_ = -1;
     int installAllChosenGameFiles_ = -1;
     int installAllChosenDataFiles_ = -1;
     std::vector<CatalogLink> installAllQueue_;
     std::vector<std::string> installAllQueueLabels_;
     size_t installAllQueueIndex_ = 0;
-    int installAllLastOutcome_ = -1;       // edge-detect Completed/Failed
+    int installAllLastOutcome_ = -1;
     bool installAllFinishedToast_ = false;
-
-    // Self-update (GitHub Releases → in-place extract to ux0:app/TITLEID)
     ::psvitaalive::UpdateChecker::Result selfUpdateInfo_{};
     bool selfUpdateChecked_ = false;
     std::atomic<bool> selfUpdateBusy_{false};
