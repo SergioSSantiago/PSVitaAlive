@@ -134,6 +134,7 @@ META_STATUS=Estado
 INSTALL_STATE_INSTALLED=Instalado
 INSTALL_STATE_UPDATE_AVAILABLE=Actualización disponible
 INSTALL_STATE_NOT_INSTALLED=No instalado
+INSTALL_STATE_INSTALLED_UNKNOWN=Instalado · versión sin verificar
 BTN_CONTINUE=Continuar
 BTN_CANCEL=Cancelar
 INSTALL_ALL_CONFIRM_1=Esto instala el homebrew desde cero:
