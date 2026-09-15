@@ -247,6 +247,11 @@ struct TransferContext {
     bool ioError = false;
     bool restartedFromZero = false;
     bool totalFromContentRange = false;
+    // Content-Range from the *current* response only (reset each attempt).
+    bool rangeValid = false;
+    uint64_t rangeStart = 0;
+    uint64_t rangeEnd = 0;
+    bool rangeMismatch = false; // 206 with start != requested resume
     int retryAfterSeconds = 0; // from Retry-After header (429/503)
     std::string etag;
     std::string lastModified;
@@ -334,13 +339,27 @@ static size_t headerCallback(char* buffer, size_t size, size_t nitems, void* use
         if (parseContentRangeTotal(contentRange, rangeStart, rangeEnd, rangeTotal)) {
             ctx->total = rangeTotal;
             ctx->totalFromContentRange = true;
-            char rangeMsg[220];
+            ctx->rangeValid = true;
+            ctx->rangeStart = rangeStart;
+            ctx->rangeEnd = rangeEnd;
+            char rangeMsg[240];
             sceClibSnprintf(rangeMsg, sizeof(rangeMsg),
-                "content-range start=%llu end=%llu total=%llu",
+                "content-range start=%llu end=%llu total=%llu resume=%llu",
                 (unsigned long long)rangeStart,
                 (unsigned long long)rangeEnd,
-                (unsigned long long)rangeTotal);
+                (unsigned long long)rangeTotal,
+                (unsigned long long)ctx->resumeOffset);
             httpDiagnostic(rangeMsg);
+            // Strict: 206 body must begin at the requested resume offset.
+            if (ctx->resumeOffset > 0 && rangeStart != ctx->resumeOffset) {
+                ctx->rangeMismatch = true;
+                char mm[220];
+                sceClibSnprintf(mm, sizeof(mm),
+                    "content-range MISMATCH start=%llu requested=%llu — will abort append",
+                    (unsigned long long)rangeStart,
+                    (unsigned long long)ctx->resumeOffset);
+                httpDiagnostic(mm);
+            }
         } else {
             // HTTP 416 commonly uses: Content-Range: bytes */TOTAL
             unsigned long long rangeTotal416 = 0;
@@ -353,6 +372,8 @@ static size_t headerCallback(char* buffer, size_t size, size_t nitems, void* use
                     "content-range unsatisfied total=%llu",
                     (unsigned long long)rangeTotal416);
                 httpDiagnostic(rangeMsg);
+            } else {
+                httpDiagnostic("content-range present but unparseable");
             }
         }
     }
@@ -386,10 +407,18 @@ static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* userdata
         ctx->firstWrite = false;
         long responseCode = 0;
         curl_easy_getinfo(ctx->curl, CURLINFO_RESPONSE_CODE, &responseCode);
-        char first[180];
-        sceClibSnprintf(first, sizeof(first), "first-write status=%ld resume=%llu total=%llu", responseCode, (unsigned long long)ctx->resumeOffset, (unsigned long long)ctx->total);
+        char first[260];
+        sceClibSnprintf(first, sizeof(first),
+            "first-write status=%ld resume=%llu total=%llu rangeValid=%d rangeStart=%llu mismatch=%d",
+            responseCode,
+            (unsigned long long)ctx->resumeOffset,
+            (unsigned long long)ctx->total,
+            ctx->rangeValid ? 1 : 0,
+            (unsigned long long)ctx->rangeStart,
+            ctx->rangeMismatch ? 1 : 0);
         httpDiagnostic(first);
         if (ctx->resumeOffset > 0 && responseCode == 200) {
+            // Server ignored Range — never append a full body onto a partial.
             sceIoClose(ctx->fd);
             ctx->fd = sceIoOpen(ctx->path.c_str(), SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
             if (ctx->fd < 0) {
@@ -399,8 +428,19 @@ static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* userdata
             ctx->resumeOffset = 0;
             ctx->downloaded = 0;
             ctx->restartedFromZero = true;
-            httpDiagnostic("server ignored Range; restarted download from zero");
+            httpDiagnostic("server ignored Range (HTTP 200); restarted download from zero");
+        } else if (ctx->resumeOffset > 0 && responseCode == 206) {
+            // Require a valid Content-Range that starts exactly at resumeOffset.
+            if (ctx->rangeMismatch || !ctx->rangeValid) {
+                httpDiagnostic("HTTP 206 with invalid/mismatched Content-Range; aborting body to avoid corruption");
+                ctx->rangeMismatch = true;
+                return 0; // abort this transfer; caller will clean-restart
+            }
         }
+    }
+
+    if (ctx->rangeMismatch) {
+        return 0;
     }
 
     size_t written = 0;
@@ -828,11 +868,8 @@ HttpResult HttpClient::downloadToFile(
     if (resumeOffset > 0) {
         // CURLOPT_RESUME_FROM takes a long (32-bit on Vita) and breaks past ~2GB.
         // Prefer the 64-bit LARGE variant for multi-GB downloads (Game Files, etc.).
-#if defined(CURLOPT_RESUME_FROM_LARGE)
+// Always use 64-bit resume (CURLOPT_RESUME_FROM is long and breaks past ~2 GiB on Vita).
         curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(resumeOffset));
-#else
-        curl_easy_setopt(curl, CURLOPT_RESUME_FROM, static_cast<long>(resumeOffset > 0x7FFFFFFFULL ? 0x7FFFFFFFULL : resumeOffset));
-#endif
     }
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
@@ -969,12 +1006,15 @@ HttpResult HttpClient::downloadToFile(
                 ctx.lastProgressBytes = 0;
                 ctx.firstWrite = true;
                 ctx.restartedFromZero = false;
-#if defined(CURLOPT_RESUME_FROM_LARGE)
-                curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(absPos));
-#else
-                curl_easy_setopt(curl, CURLOPT_RESUME_FROM,
-                    static_cast<long>(absPos > 0x7FFFFFFFULL ? 0x7FFFFFFFULL : absPos));
-#endif
+                ctx.rangeValid = false;
+                ctx.rangeStart = 0;
+                ctx.rangeEnd = 0;
+                ctx.rangeMismatch = false;
+                ctx.totalFromContentRange = false;
+                ctx.etag.clear();
+                ctx.lastModified.clear();
+// Always use 64-bit resume (CURLOPT_RESUME_FROM is long and breaks past ~2 GiB on Vita).
+        curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(absPos));
                 if (ctx.fd >= 0)
                     sceIoLseek(ctx.fd, 0, SCE_SEEK_END);
                 char resumeMsg[140];
@@ -1009,6 +1049,48 @@ HttpResult HttpClient::downloadToFile(
             break;
         }
 
+        // Content-Range mismatch on 206 (or aborted write): never keep corrupted partial.
+        // Clean-restart from zero at most once.
+        if (ctx.rangeMismatch && !rangeFallbackUsed) {
+            rangeFallbackUsed = true;
+            char mm[240];
+            sceClibSnprintf(mm, sizeof(mm),
+                "range mismatch clean-restart from 0 (was resume=%llu local+=%llu)",
+                (unsigned long long)ctx.resumeOffset,
+                (unsigned long long)ctx.downloaded);
+            httpDiagnostic(mm);
+            if (ctx.fd >= 0) {
+                sceIoClose(ctx.fd);
+                ctx.fd = -1;
+            }
+            sceIoRemove(destinationPath.c_str());
+            ctx.fd = sceIoOpen(
+                destinationPath.c_str(),
+                SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC,
+                0777);
+            if (ctx.fd < 0) {
+                ctx.ioError = true;
+                break;
+            }
+            ctx.resumeOffset = 0;
+            ctx.downloaded = 0;
+            ctx.total = 0;
+            ctx.totalFromContentRange = false;
+            ctx.rangeValid = false;
+            ctx.rangeStart = 0;
+            ctx.rangeEnd = 0;
+            ctx.rangeMismatch = false;
+            ctx.lastProgressTick = 0;
+            ctx.lastProgressBytes = 0;
+            ctx.bytesPerSecond = 0;
+            ctx.firstWrite = true;
+            ctx.restartedFromZero = true;
+            ctx.etag.clear();
+            ctx.lastModified.clear();
+            curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
+            continue;
+        }
+
         // An invalid/stale resume offset should not permanently fail the job. Restart
         // once from zero, just like the curl 33 Range fallback.
         if (result == CURLE_OK &&
@@ -1041,16 +1123,18 @@ HttpResult HttpClient::downloadToFile(
             ctx.downloaded = 0;
             ctx.total = 0;
             ctx.totalFromContentRange = false;
+            ctx.rangeValid = false;
+            ctx.rangeStart = 0;
+            ctx.rangeEnd = 0;
+            ctx.rangeMismatch = false;
             ctx.lastProgressTick = 0;
             ctx.lastProgressBytes = 0;
             ctx.bytesPerSecond = 0;
             ctx.firstWrite = true;
             ctx.restartedFromZero = true;
-#if defined(CURLOPT_RESUME_FROM_LARGE)
-            curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
-#else
-            curl_easy_setopt(curl, CURLOPT_RESUME_FROM, 0L);
-#endif
+            ctx.etag.clear();
+            ctx.lastModified.clear();
+curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
             continue;
         }
 
@@ -1112,14 +1196,7 @@ HttpResult HttpClient::downloadToFile(
             ctx.firstWrite = true;
             ctx.restartedFromZero = true;
 
-#if defined(CURLOPT_RESUME_FROM_LARGE)
-            curl_easy_setopt(
-                curl,
-                CURLOPT_RESUME_FROM_LARGE,
-                static_cast<curl_off_t>(0));
-#else
-            curl_easy_setopt(curl, CURLOPT_RESUME_FROM, 0L);
-#endif
+curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
             lastFail = result;
             continue;
         }
@@ -1261,6 +1338,44 @@ HttpResult HttpClient::downloadToFile(
 
     if (rangeAlreadyComplete) {
         httpDiagnostic("download already complete according to HTTP 416 Content-Range");
+    }
+
+    // Finalize FD before size check / rename by caller.
+    if (ctx.fd >= 0) {
+        sceIoClose(ctx.fd);
+        ctx.fd = -1;
+    }
+
+    // Strict size check against authoritative remote total (Content-Range TOTAL or Content-Length).
+    {
+        SceIoStat st{};
+        const int stRes = sceIoGetstat(destinationPath.c_str(), &st);
+        const uint64_t localSize = (stRes >= 0) ? static_cast<uint64_t>(st.st_size) : 0ULL;
+        const uint64_t absoluteDownloaded = rangeAlreadyComplete
+            ? ctx.resumeOffset
+            : (ctx.resumeOffset + ctx.downloaded);
+
+        char sizeMsg[280];
+        sceClibSnprintf(sizeMsg, sizeof(sizeMsg),
+            "finalize local=%llu absolute=%llu remoteTotal=%llu fromRange=%d status=%ld",
+            (unsigned long long)localSize,
+            (unsigned long long)absoluteDownloaded,
+            (unsigned long long)ctx.total,
+            ctx.totalFromContentRange ? 1 : 0,
+            responseCode);
+        httpDiagnostic(sizeMsg);
+
+        if (ctx.total > 0 && localSize != ctx.total) {
+            char err[220];
+            sceClibSnprintf(err, sizeof(err),
+                "size mismatch after download local=%llu remote=%llu — refusing complete",
+                (unsigned long long)localSize,
+                (unsigned long long)ctx.total);
+            setError(err);
+            httpDiagnostic(err);
+            // Leave .part in place for diagnostics; caller must not treat as success.
+            return HttpResult::NetworkError;
+        }
     }
 
     sceClibPrintf("[HttpClient] done status=%ld downloaded=%llu absolute=%llu range=%d speed=%llu B/s redirects=%ld effective=%s\n",
