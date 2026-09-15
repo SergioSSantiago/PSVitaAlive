@@ -287,6 +287,7 @@ const char* LocalizationManager::keyFor(TextId id) {
         case TextId::InstallStateInstalled: return "INSTALL_STATE_INSTALLED";
         case TextId::InstallStateUpdateAvailable: return "INSTALL_STATE_UPDATE_AVAILABLE";
         case TextId::InstallStateNotInstalled: return "INSTALL_STATE_NOT_INSTALLED";
+        case TextId::InstallStateInstalledUnknown: return "INSTALL_STATE_INSTALLED_UNKNOWN";
         case TextId::BtnContinue: return "BTN_CONTINUE";
         case TextId::BtnCancel: return "BTN_CANCEL";
         case TextId::InstallAllConfirm1: return "INSTALL_ALL_CONFIRM_1";
