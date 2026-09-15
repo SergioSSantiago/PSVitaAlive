@@ -32,10 +32,19 @@ struct InstallStatus {
     std::string installPath;
     std::string titleId;
     bool liveAreaOk = false;
+    /** Remaining ms before Completed auto-dismisses (0 = no auto-dismiss). */
     uint64_t resultAutoCloseRemainingMs = 0;
+    /** True when a Plugin link finished and the user must reboot for taiHEN. */
     bool needsReboot = false;
 };
 
+/**
+ * Coordinates download + install on a worker thread so the UI thread never performs filesystem/network work.
+ *
+ * Completed stays visible until acknowledgeResult() or a short timeout.
+ * Failed / Cancelled stay until the user acknowledges (no auto-dismiss).
+ * Cancelled is shown as "Download cancelled" without an error Report button.
+ */
 class InstallController {
 public:
     InstallController();
@@ -57,14 +66,17 @@ public:
         const std::string& pluginLine = std::string()
     );
     void cancel();
+    /** User dismissed the success/error result panel (or UI timeout). */
     void acknowledgeResult();
     InstallStatus status() const;
 
     bool busy() const;
 
+    /** Loaded from config.json (install_method, psp_target, plugin warnings). */
     const AppSettingsData& settings() const { return settings_; }
     void setSettings(const AppSettingsData& s);
 
+    /** Last plugin scan (updated in init). */
     const PluginStatus& plugins() const { return plugins_; }
 
     /** Catalog identity for the install about to start (optional; used for receipts). */
@@ -79,11 +91,13 @@ private:
     PluginStatus plugins_{};
 
     SceUID workerThread_ = -1;
+    /** Background tick: prevent auto-suspend while download/extract is active. */
     SceUID keepAwakeThread_ = -1;
     std::atomic<bool> keepAwakeStop_{true};
     bool shellUtilReady_ = false;
     bool shellLocked_ = false;
 
+    /** When true, worker runs PKG BGDL enqueue instead of HTTP download. */
     bool activeBgdlJob_ = false;
     std::string pendingAppId_;
     std::string pendingCatalogVersion_;
@@ -95,6 +109,7 @@ private:
     std::string activeJobId_;
     std::string activeZipDestination_;
     std::string activeFileName_;
+    /** Direct PKG path only: zRIF / content_id carried from requestInstall (VPK ignores these). */
     std::string activeZrif_;
     std::string activeContentId_;
     std::string activeLinkType_;
@@ -123,6 +138,8 @@ private:
     void startKeepAwakeThread();
     void stopKeepAwakeThread();
 
+    /** Block PS button (+ soft power-off menu) while a job is running so the user
+     *  cannot exit to LiveArea mid-download/extract. Always unlocked on finish. */
     void lockShellDuringJob();
     void unlockShellDuringJob();
 
