@@ -1,5 +1,5 @@
-id: 2026-09-10-0001
-title: PSVitaAlive 02.03 is here!
+id: 2026-09-15-0001
+title: PSVitaAlive 02.04 is here!
 enabled: true
 ---
 # Thanks for using PS Vita Alive Store.
@@ -14,19 +14,13 @@ enabled: true
 
 ---
 
-## Major update since 01.18  themes, fonts, plugins, installs, UI readability, multilanguage, and stability.
-
----
-
 # What's New
 
 ## Improvements
 
-- Added a progress indicator for PSP/PS1 PKG installations and ISO conversions.
-- Added font styles and size adjustment (go to settings).
-- Improved the reporting system.
-- Support for detecting and updating old or obsolete Kubridge plugins.
-- Installation method selection window for PSP and PS1 games.
+- Fixed an issue causing errors during ZIP file extraction (64-bit offsets).
+- Improved Homebrew update detection.
+- Removed error reporting for insufficient storage or lack of internet connection, as these were generating false positives.
 
 ### Tips:
 - iTLS-ENSO (full) recommended for HTTPS
