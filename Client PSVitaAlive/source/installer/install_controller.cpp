@@ -1,4 +1,5 @@
 #include "installer/install_controller.hpp"
+#include "update/installed_release_tracker.hpp"
 #include "localization/localization.hpp"
 #include "diagnostic_logger.hpp"
 #include <psp2/net/netctl.h>
@@ -268,6 +269,14 @@ void InstallController::acknowledgeResult() {
 bool InstallController::busy() const {
     const auto s = static_cast<InstallStatus::State>(state_.load());
     return s == InstallStatus::State::Downloading || s == InstallStatus::State::Installing;
+}
+
+void InstallController::setPendingCatalogMeta(const std::string& appId, const std::string& version,
+                                                   const std::string& versionDate, int revision) {
+    pendingAppId_ = appId;
+    pendingCatalogVersion_ = version;
+    pendingVersionDate_ = versionDate;
+    pendingReleaseRevision_ = revision;
 }
 
 bool InstallController::requestInstall(
@@ -1077,6 +1086,29 @@ int InstallController::workerMain() {
         }
         setStage("Completed");
         setState(InstallStatus::State::Completed, okMsg);
+        // Local receipt so future queries do not depend on APP_VER alone.
+        {
+            const std::string tid = dispatcher_.lastTitleId();
+            const std::string path = dispatcher_.lastInstallPath();
+            if (!tid.empty() && path.find("ux0:app/") != std::string::npos) {
+                ::psvitaalive::update::InstallReceipt rec;
+                rec.schemaVersion = 1;
+                rec.titleId = tid;
+                rec.appId = pendingAppId_;
+                rec.catalogVersion = pendingCatalogVersion_;
+                rec.versionDate = pendingVersionDate_;
+                rec.releaseRevision = pendingReleaseRevision_;
+                rec.verifyPath = "eboot.bin";
+                rec.verifyAlgorithm = "sha256";
+                rec.verifyDigest = ""; // fingerprint worker fills later; version receipt still useful
+                if (::psvitaalive::update::InstalledReleaseTracker::writeReceipt(rec)) {
+                    diagnostics::log(std::string("[UpdateDetect] receipt written titleId=") + tid +
+                                     " catalogVersion=" + pendingCatalogVersion_);
+                } else {
+                    diagnostics::log(std::string("[UpdateDetect] receipt write failed titleId=") + tid);
+                }
+            }
+        }
         diagnostics::log(std::string("[Installer] installation completed path=") +
             dispatcher_.lastInstallPath() + " titleId=" + dispatcher_.lastTitleId() +
             " liveArea=" + (dispatcher_.lastLiveAreaOk() ? "yes" : "no") +
