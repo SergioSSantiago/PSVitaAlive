@@ -583,6 +583,7 @@ int main(){
         }
         {
             uint64_t exp = parseCatalogSizeBytes(item.size);
+            installer.setPendingCatalogMeta(item.id, item.version, item.versionDate, 0);
             return installer.requestInstall(item.downloadUrl,item.downloadFileName,zipDestination,zrif,ltype,cid,item.name,exp);
         }},[&installer](){return installStatusText(installer.status());});
     screen.setLinkActionCallback([&installer](const psvitaalive::ui::CatalogItem&item,const psvitaalive::ui::CatalogLink&link){
@@ -631,6 +632,7 @@ int main(){
         {
             uint64_t exp = parseCatalogSizeBytes(link.size);
             if (exp == 0) exp = parseCatalogSizeBytes(item.size);
+            installer.setPendingCatalogMeta(item.id, item.version, item.versionDate, 0);
             return installer.requestInstall(requestItem.downloadUrl,requestItem.downloadFileName,zipDestination,link.zrif,link.type,link.contentId,item.name,exp,link.section,link.line);
         }
     });
