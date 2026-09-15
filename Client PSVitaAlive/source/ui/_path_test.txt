@@ -1,0 +1,1 @@
+@/home/workdir/artifacts/.tmp/small_test.txt
