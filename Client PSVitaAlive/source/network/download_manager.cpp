@@ -73,18 +73,60 @@ bool DownloadManager::ensureJobDirs(DownloadJob& job) {
 }
 
 bool DownloadManager::saveMetadata(const DownloadJob& job) const {
-    char body[1400];
+    auto jsonEsc = [](const std::string& in) -> std::string {
+        std::string out;
+        out.reserve(in.size() + 8);
+        for (unsigned char c : in) {
+            if (c == '"') { out += "\\\""; continue; }
+            if (c == '\\') { out += "\\\\"; continue; }
+            if (c == '\n') { out += "\\n"; continue; }
+            if (c == '\r') { out += "\\r"; continue; }
+            if (c == '\t') { out += "\\t"; continue; }
+            if (c < 0x20) {
+                char buf[8];
+                sceClibSnprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned>(c));
+                out += buf;
+                continue;
+            }
+            out.push_back(static_cast<char>(c));
+        }
+        return out;
+    };
+    const std::string id = jsonEsc(job.id);
+    const std::string url = jsonEsc(job.url);
+    const std::string fileName = jsonEsc(job.fileName);
+    const std::string etag = jsonEsc(job.etag);
+    const std::string lastModified = jsonEsc(job.lastModified);
+    const std::string validatorUrl = jsonEsc(job.validatorUrl);
+    const std::string state = jsonEsc(toString(job.state));
+
+    char body[2048];
     sceClibSnprintf(
         body, sizeof(body),
-        "{\n  \"id\": \"%s\",\n  \"url\": \"%s\",\n  \"file_name\": \"%s\",\n"
-        "  \"expected_size\": %llu,\n  \"downloaded_size\": %llu,\n  \"bytes_per_second\": %llu,\n"
-        "  \"state\": \"%s\",\n  \"last_http_status\": %d\n}\n",
-        job.id.c_str(), job.url.c_str(), job.fileName.c_str(),
+        "{\n"
+        "  \"id\": \"%s\",\n"
+        "  \"url\": \"%s\",\n"
+        "  \"file_name\": \"%s\",\n"
+        "  \"expected_size\": %llu,\n"
+        "  \"downloaded_size\": %llu,\n"
+        "  \"bytes_per_second\": %llu,\n"
+        "  \"state\": \"%s\",\n"
+        "  \"last_http_status\": %d,\n"
+        "  \"etag\": \"%s\",\n"
+        "  \"last_modified\": \"%s\",\n"
+        "  \"validator_url\": \"%s\"\n"
+        "}\n",
+        id.c_str(),
+        url.c_str(),
+        fileName.c_str(),
         (unsigned long long)job.expectedSize,
         (unsigned long long)job.downloadedSize,
         (unsigned long long)job.bytesPerSecond,
-        job.etag.c_str(), job.lastModified.c_str(), job.validatorUrl.c_str(),
-        toString(job.state), job.lastHttpStatus
+        state.c_str(),
+        job.lastHttpStatus,
+        etag.c_str(),
+        lastModified.c_str(),
+        validatorUrl.c_str()
     );
     StorageManager st;
     return st.writeTextFile(job.metadataPath, body);
