@@ -56,6 +56,8 @@ set(SOURCES
   source/catalog/catalog_manager.cpp
   source/update/update_checker.cpp
   source/update/startup_update_manager.cpp
+  source/update/update_decision.cpp
+  source/update/installed_release_tracker.cpp
   source/ui/ui_types.cpp
   source/ui/image_cache.cpp
   source/ui/ui_font.cpp
