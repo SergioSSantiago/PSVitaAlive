@@ -442,15 +442,21 @@ ZipResult ZipExtractor::extract(
     ZipProgress prog;
     prog.entriesTotal = static_cast<uint64_t>(numEntries);
 
-    // Pre-scan sizes / methods (helps diagnose large deflate entries on Vita).
+        // Pre-scan: sum uncompressed sizes, log large/unusual entries, then verify free space.
+    uint64_t uncompressedTotal = 0;
+    const int64_t archiveSize = st.fileSize(zipPath);
     for (zip_int64_t i = 0; i < numEntries; ++i) {
         zip_stat_t zs;
         zip_stat_init(&zs);
         if (zip_stat_index(za, i, 0, &zs) == 0 && zs.name) {
             const size_t len = std::strlen(zs.name);
             const bool isDir = len > 0 && zs.name[len - 1] == '/';
-            if (!isDir && zs.size > 0) prog.bytesTotal += static_cast<uint64_t>(zs.size);
-            if (!isDir && (zs.valid & ZIP_STAT_COMP_METHOD) && zs.comp_method != 0 && zs.comp_method != 8) {
+            if (!isDir && (zs.valid & ZIP_STAT_SIZE) && zs.size > 0) {
+                uncompressedTotal += static_cast<uint64_t>(zs.size);
+                prog.bytesTotal += static_cast<uint64_t>(zs.size);
+            }
+            if ((zs.valid & ZIP_STAT_COMP_METHOD) &&
+                zs.comp_method != 0 && zs.comp_method != 8) {
                 char warn[200];
                 sceClibSnprintf(
                     warn, sizeof(warn),
@@ -473,7 +479,37 @@ ZipResult ZipExtractor::extract(
         }
     }
 
-    std::vector<char> buffer(EXTRACT_CHUNK);
+    {
+        uint64_t freeB = 0, totalB = 0;
+        const bool haveSpace = StorageManager::queryUx0Space(freeB, totalB);
+        // Margin: 32 MiB + 5% of uncompressed for FS overhead.
+        const uint64_t margin = (32ULL * 1024ULL * 1024ULL) + (uncompressedTotal / 20ULL);
+        const uint64_t required = uncompressedTotal + margin;
+        char spaceMsg[320];
+        sceClibSnprintf(
+            spaceMsg, sizeof(spaceMsg),
+            "[ZipExtractor] precheck archive=%lld uncomp=%llu required~=%llu free=%llu",
+            (long long)archiveSize,
+            (unsigned long long)uncompressedTotal,
+            (unsigned long long)required,
+            (unsigned long long)(haveSpace ? freeB : 0ULL));
+        diagnostics::log(spaceMsg);
+        if (haveSpace && uncompressedTotal > 0 && freeB < required) {
+            char err[360];
+            sceClibSnprintf(
+                err, sizeof(err),
+                "not enough free space: archive=%lld uncomp=%llu required~=%llu free=%llu",
+                (long long)archiveSize,
+                (unsigned long long)uncompressedTotal,
+                (unsigned long long)required,
+                (unsigned long long)freeB);
+            setError(err);
+            zip_close(za);
+            return ZipResult::IoError;
+        }
+    }
+
+std::vector<char> buffer(EXTRACT_CHUNK);
     ZipResult outcome = ZipResult::Ok;
 
     for (zip_int64_t i = 0; i < numEntries; ++i) {
@@ -585,7 +621,19 @@ ZipResult ZipExtractor::extract(
             while (written < static_cast<int>(n)) {
                 const int w = sceIoWrite(fd, buffer.data() + written, static_cast<int>(n) - written);
                 if (w <= 0) {
-                    setError(std::string("sceIoWrite failed during extract: ") + outPath);
+                    uint64_t freeB = 0, totalB = 0;
+                    const bool haveSpace = StorageManager::queryUx0Space(freeB, totalB);
+                    char err[420];
+                    sceClibSnprintf(
+                        err, sizeof(err),
+                        "sceIoWrite failed path=%s ret=%d tried=%d written_total=%llu free=%llu",
+                        outPath.c_str(),
+                        w,
+                        static_cast<int>(n) - written,
+                        (unsigned long long)writtenTotal,
+                        (unsigned long long)(haveSpace ? freeB : 0ULL));
+                    setError(err);
+                    diagnostics::log(std::string("[ZipExtractor] ") + err);
                     outcome = ZipResult::IoError;
                     fileOk = false;
                     break;
