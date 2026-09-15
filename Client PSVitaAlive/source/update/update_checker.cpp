@@ -179,28 +179,27 @@ std::string pickBestVersion(const std::vector<std::string>& candidates) {
     return best;
 }
 
-std::string resolveRemoteVersion(const std::string& tag, const std::string& name, const std::string& body) {
+// The GitHub release tag is the only authority for self-update versions.
+// Release names and bodies are free-form human text and must never influence
+// update detection (numbers such as sizes, years, issue IDs, etc. are allowed).
+std::string resolveRemoteVersion(const std::string& tag) {
     std::vector<std::string> candidates;
-
-    // 1) Tag: "v01.01", "01.01", "BETA-0.1", "BETA_0.1"
     collectVersionsFromText(tag, candidates);
 
-    // 2) Release name: "PsVita Alive Store BETA 01.00"
-    collectVersionsFromText(name, candidates);
-
-    // 3) Body (limited): "BETA 01.01", "version 1.2.0"
-    if (!body.empty()) {
-        const std::string slice = body.size() > 4096 ? body.substr(0, 4096) : body;
-        collectVersionsFromText(slice, candidates);
+    std::vector<std::string> valid;
+    valid.reserve(candidates.size());
+    for (const auto& candidate : candidates) {
+        // PSVitaAlive release versions are dotted numeric versions (02.04,
+        // v02.04, 1.2.3, BETA-0.1, ...). Reject plain integers as ambiguous.
+        if (!candidate.empty() && candidate.find('.') != std::string::npos) {
+            valid.push_back(candidate);
+        }
     }
 
-    // De-noise: drop empty
-    std::vector<std::string> cleaned;
-    cleaned.reserve(candidates.size());
-    for (const auto& c : candidates) {
-        if (!c.empty()) cleaned.push_back(c);
-    }
-    return pickBestVersion(cleaned);
+    // Fail closed instead of guessing if the release tag is missing a version
+    // or contains more than one plausible dotted version.
+    if (valid.size() != 1) return {};
+    return valid[0];
 }
 
 bool endsWithIgnoreCase(const std::string& value, const char* suffix) {
@@ -284,8 +283,7 @@ bool jsonIsTrue(const sce::Json::Value& object, const char* key) {
 void fillFromReleaseObject(const sce::Json::Value& release, UpdateChecker::Result& result) {
     result.releaseTag = getString(release, "tag_name");
     result.releaseName = getString(release, "name");
-    const std::string releaseBody = getString(release, "body");
-    result.remoteVersion = resolveRemoteVersion(result.releaseTag, result.releaseName, releaseBody);
+    result.remoteVersion = resolveRemoteVersion(result.releaseTag);
     result.downloadUrl.clear();
     result.assetName.clear();
     result.digest.clear();
@@ -669,9 +667,13 @@ UpdateChecker::Result UpdateChecker::checkLatest(const std::string& currentVersi
                 " asset=" + result.assetName +
                 " selected=" + (ok ? "yes" : "no")
             );
+            diagnostics::log(
+                std::string("[UpdateChecker] version source=tag_name tag=") + result.releaseTag +
+                " parsed=" + result.remoteVersion
+            );
 
             if (result.remoteVersion.empty()) {
-                result.error = "GitHub release does not expose a usable version (tag/name/body)";
+                result.error = "GitHub release tag does not contain exactly one valid dotted application version";
             } else if (result.downloadUrl.empty()) {
                 result.error = "GitHub release does not contain a .vpk asset (expected PSVitaAlive.vpk)";
             } else if (compareVersions(result.localVersion, result.remoteVersion) < 0) {
