@@ -131,6 +131,7 @@ enum class TextId {
     InstallStateInstalled,
     InstallStateUpdateAvailable,
     InstallStateNotInstalled,
+    InstallStateInstalledUnknown,
     BtnContinue,
     BtnCancel,
     InstallAllConfirm1,
