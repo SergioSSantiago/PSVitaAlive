@@ -996,13 +996,29 @@ int InstallController::workerMain() {
             std::to_string(attempt) + "/" + std::to_string(kMaxInstallAttempts) +
             " failed: " + lastInstallError);
 
+        // Deterministic archive corruption / unsupported formats must not spin retries.
+        const bool corruptArchive =
+            lastInstallError.find("CRC") != std::string::npos ||
+            lastInstallError.find("crc") != std::string::npos ||
+            lastInstallError.find("compressed data") != std::string::npos ||
+            lastInstallError.find("data error") != std::string::npos ||
+            lastInstallError.find("unexpected end") != std::string::npos ||
+            lastInstallError.find("premature") != std::string::npos ||
+            lastInstallError.find("truncated") != std::string::npos ||
+            lastInstallError.find("Unsupported compression") != std::string::npos ||
+            lastInstallError.find("unsupported compression") != std::string::npos ||
+            lastInstallError.find("encryption") != std::string::npos ||
+            lastInstallError.find("size mismatch after extract") != std::string::npos ||
+            lastInstallError.find("size mismatch after download") != std::string::npos;
         const bool hardPermanent =
             result == InstallDispatchResult::InvalidArgument ||
             result == InstallDispatchResult::UnsupportedFormat ||
             result == InstallDispatchResult::DetectFailed ||
+            corruptArchive ||
             lastInstallError.find("cancelled") != std::string::npos ||
             lastInstallError.find("not found") != std::string::npos ||
-            lastInstallError.find("empty installation") != std::string::npos;
+            lastInstallError.find("empty installation") != std::string::npos ||
+            lastInstallError.find("not enough free space") != std::string::npos;
         if (hardPermanent) {
             diagnostics::log(
                 std::string("[Installer] permanent install error — stop retries: ") +
