@@ -26,6 +26,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           python3 scripts/_temporary_ime_stress_fix.py
           git diff --check
           grep -n "enum class State { Idle, Running, Cooldown }" 'Client PSVitaAlive/source/main.cpp'
