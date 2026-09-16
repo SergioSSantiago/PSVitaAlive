@@ -257,6 +257,155 @@ unsigned ACCENT_SOFT=RGBA8(0x3B,0xFF,0x00,40);
 unsigned WHITE=RGBA8(0xF0,0xF0,0xF0,255);
 unsigned SILVER=RGBA8(0xC8,0xC8,0xCC,255);
 
+
+// OLED protection mode for long-running download / extract / install phases.
+// It only affects rendering/input; installer, curl, power locks and job control stay untouched.
+enum class ProtectionPhase {
+    None = 0,
+    Downloading,
+    Extracting,
+    Installing
+};
+
+constexpr uint64_t kProtectionDelayMs = 60ULL * 1000ULL;
+constexpr uint64_t kProtectionMoveMs = 2ULL * 60ULL * 1000ULL;
+constexpr int kProtectionBlockW = 430;
+constexpr int kProtectionBlockH = 150;
+constexpr int kProtectionMargin = 16;
+constexpr int kProtectionMinMoveX = 140;
+constexpr int kProtectionMinMoveY = 80;
+
+ProtectionPhase gProtectionPhase = ProtectionPhase::None;
+bool gProtectionActive = false;
+bool gProtectionTouchConsumeUntilRelease = false;
+uint64_t gProtectionPhaseStartMs = 0;
+uint64_t gProtectionLastMoveMs = 0;
+int gProtectionX = (SCREEN_W - kProtectionBlockW) / 2;
+int gProtectionY = (SCREEN_H - kProtectionBlockH) / 2;
+uint32_t gProtectionRngState = 0;
+
+uint64_t protectionNowMs() {
+    return sceKernelGetProcessTimeWide() / 1000ULL;
+}
+
+uint32_t protectionRandom() {
+    if (gProtectionRngState == 0) {
+        const uint64_t t = sceKernelGetProcessTimeWide();
+        gProtectionRngState = static_cast<uint32_t>(t ^ (t >> 32) ^ 0x9E3779B9u);
+        if (gProtectionRngState == 0) gProtectionRngState = 0xA341316Cu;
+    }
+    uint32_t x = gProtectionRngState;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    gProtectionRngState = x ? x : 0xA341316Cu;
+    return gProtectionRngState;
+}
+
+void protectionChoosePosition(bool forceDifferent) {
+    const int minX = kProtectionMargin;
+    const int minY = kProtectionMargin;
+    const int maxX = SCREEN_W - kProtectionBlockW - kProtectionMargin;
+    const int maxY = SCREEN_H - kProtectionBlockH - kProtectionMargin;
+    const int spanX = std::max(1, maxX - minX + 1);
+    const int spanY = std::max(1, maxY - minY + 1);
+    const int oldX = gProtectionX;
+    const int oldY = gProtectionY;
+
+    for (int attempt = 0; attempt < 12; ++attempt) {
+        const int nx = minX + static_cast<int>(protectionRandom() % static_cast<uint32_t>(spanX));
+        const int ny = minY + static_cast<int>(protectionRandom() % static_cast<uint32_t>(spanY));
+        const bool movedEnough = std::abs(nx - oldX) >= kProtectionMinMoveX ||
+                                 std::abs(ny - oldY) >= kProtectionMinMoveY;
+        if (!forceDifferent || movedEnough || attempt == 11) {
+            gProtectionX = nx;
+            gProtectionY = ny;
+            return;
+        }
+    }
+}
+
+ProtectionPhase protectionPhaseForStage(bool active, int outcome, const std::string& stage) {
+    if (!active || outcome != 0) return ProtectionPhase::None;
+
+    const bool extracting =
+        stage.find("Extract") != std::string::npos ||
+        stage.find("extract") != std::string::npos ||
+        stage.find("ZIP") != std::string::npos ||
+        stage.find("Unzip") != std::string::npos ||
+        stage.find("Unpack") != std::string::npos;
+    if (extracting) return ProtectionPhase::Extracting;
+
+    const bool installing =
+        stage == "Installing" ||
+        stage.find("Install") != std::string::npos ||
+        stage.find("Promote") != std::string::npos ||
+        stage.find("promote") != std::string::npos ||
+        stage.find("Converting") != std::string::npos ||
+        stage.find("Convert") != std::string::npos ||
+        stage.find("ISO") != std::string::npos ||
+        stage.find("Finishing") != std::string::npos;
+    if (installing) return ProtectionPhase::Installing;
+
+    const bool downloading =
+        stage == "Downloading" ||
+        stage == "Cancelling" ||
+        stage.empty();
+    return downloading ? ProtectionPhase::Downloading : ProtectionPhase::None;
+}
+
+void protectionUpdateForJob(bool active, int outcome, const std::string& stage) {
+    const ProtectionPhase next = protectionPhaseForStage(active, outcome, stage);
+    const uint64_t now = protectionNowMs();
+
+    if (next == ProtectionPhase::None) {
+        if (gProtectionActive) diagnostics::log("[UI] OLED protection left: job phase ended");
+        gProtectionPhase = ProtectionPhase::None;
+        gProtectionActive = false;
+        gProtectionPhaseStartMs = 0;
+        gProtectionLastMoveMs = 0;
+        return;
+    }
+
+    if (next != gProtectionPhase || gProtectionPhaseStartMs == 0) {
+        gProtectionPhase = next;
+        gProtectionActive = false;
+        gProtectionPhaseStartMs = now;
+        gProtectionLastMoveMs = 0;
+        protectionChoosePosition(false);
+        diagnostics::log("[UI] OLED protection phase timer started");
+    }
+}
+
+void protectionTick() {
+    if (gProtectionPhase == ProtectionPhase::None || gProtectionPhaseStartMs == 0) return;
+    const uint64_t now = protectionNowMs();
+
+    if (!gProtectionActive) {
+        if (now >= gProtectionPhaseStartMs && (now - gProtectionPhaseStartMs) >= kProtectionDelayMs) {
+            gProtectionActive = true;
+            protectionChoosePosition(false);
+            gProtectionLastMoveMs = now;
+            diagnostics::log("[UI] OLED protection entered");
+        }
+        return;
+    }
+
+    if (now >= gProtectionLastMoveMs && (now - gProtectionLastMoveMs) >= kProtectionMoveMs) {
+        protectionChoosePosition(true);
+        gProtectionLastMoveMs = now;
+        diagnostics::log("[UI] OLED protection block moved");
+    }
+}
+
+void protectionDismiss() {
+    if (!gProtectionActive) return;
+    gProtectionActive = false;
+    gProtectionPhaseStartMs = protectionNowMs();
+    gProtectionLastMoveMs = 0;
+    diagnostics::log("[UI] OLED protection dismissed by user; grace timer restarted");
+}
+
 /** Rebuild RGBA with a new alpha; keeps RGB from c (vita2d RGBA8 = A<<24 | B<<16 | G<<8 | R). */
 unsigned withAlpha(unsigned c, unsigned a) {
     return (c & 0x00FFFFFFu) | ((a & 0xFFu) << 24);
@@ -2316,6 +2465,7 @@ void FullCatalogScreen::setCatalogItems(std::vector<CatalogItem>items){
 
     installOutcome_ = outcome;
     installLiveAreaOk_ = liveAreaOk;
+    protectionUpdateForJob(active, outcome, stage);
     installResultPath_ = installPath;
     installResultTitleId_ = titleId;
     // Refresh local install badges after a finished install attempt
@@ -2886,7 +3036,28 @@ void FullCatalogScreen::handleTouch() {
     if (isTransitioning()) return;
 
     SceTouchData td{};
-    if (sceTouchPeek(SCE_TOUCH_PORT_FRONT, &td, 1) <= 0) return;
+    const int touchRet = sceTouchPeek(SCE_TOUCH_PORT_FRONT, &td, 1);
+    if (touchRet <= 0) {
+        if (gProtectionTouchConsumeUntilRelease) gProtectionTouchConsumeUntilRelease = false;
+        return;
+    }
+
+    // A touch may wake the protection screen too, but never leaks into the
+    // underlying download/install controls. Consume until the finger is released.
+    if (gProtectionTouchConsumeUntilRelease) {
+        if (td.reportNum <= 0) gProtectionTouchConsumeUntilRelease = false;
+        return;
+    }
+    if (gProtectionActive) {
+        if (td.reportNum > 0) {
+            protectionDismiss();
+            gProtectionTouchConsumeUntilRelease = true;
+            touchDown_ = false;
+            touchMoved_ = false;
+            touchAccumY_ = 0.f;
+        }
+        return;
+    }
 
     // Vita front touch is typically 1920x1088 logical units.
     auto mapX = [](int tx) { return tx * SCREEN_W / 1920; };
@@ -4434,7 +4605,7 @@ void FullCatalogScreen::handleInput(){
         }
         return;
     }
-if(isTransitioning())return;SceCtrlData p{};sceCtrlPeekBufferPositive(0,&p,1);static uint32_t prev=0;static uint64_t repeatAt=0;uint32_t mask=SCE_CTRL_UP|SCE_CTRL_DOWN|SCE_CTRL_LEFT|SCE_CTRL_RIGHT,pressed=p.buttons&~prev,direct=pressed&mask;uint64_t now=sceKernelGetProcessTimeWide(),repeat=0;if((p.buttons&mask)==0)repeatAt=0;else if(direct)repeatAt=now+DIRECTION_REPEAT_DELAY_US;else if(repeatAt&&now>=repeatAt){repeat=p.buttons&mask;repeatAt=now+DIRECTION_REPEAT_INTERVAL_US;}prev=p.buttons;uint32_t nav=direct|repeat;if(themeSetupVisible_){const int themeCount=static_cast<int>(::psvitaalive::ColorTheme::Count);const int cols=3;const int visibleRows=5;auto afterMove=[&](){clampThemePickerScroll(themeSetupFocus_,themeSetupScrollRow_,themeCount,cols,visibleRows);};if(nav&SCE_CTRL_LEFT){if(themeSetupFocus_<themeCount){int c=themeSetupFocus_%cols;if(c>0){--themeSetupFocus_;afterMove();}}return;}if(nav&SCE_CTRL_RIGHT){if(themeSetupFocus_<themeCount){int c=themeSetupFocus_%cols;if(c<cols-1&&themeSetupFocus_+1<themeCount){++themeSetupFocus_;afterMove();}}return;}if(nav&SCE_CTRL_UP){  if(themeSetupFocus_==themeCount){themeSetupFocus_=std::max(0,themeCount-1);}  else if(themeSetupFocus_>=cols)themeSetupFocus_-=cols;  else if(themeSetupScrollRow_>0)--themeSetupScrollRow_;  afterMove();return;}if(nav&SCE_CTRL_DOWN){  if(themeSetupFocus_<themeCount){int n=themeSetupFocus_+cols;if(n<themeCount)themeSetupFocus_=n;else themeSetupFocus_=themeCount;}  afterMove();return;}if(pressed&SCE_CTRL_CROSS){if(themeSetupFocus_==themeCount){closeThemeSetup(true);}else if(themeSetupAppliedFocus_==themeSetupFocus_){closeThemeSetup(true);}else{applyThemeSetupFocus();themeSetupAppliedFocus_=themeSetupFocus_;showToast(::psvitaalive::L(::psvitaalive::TextId::ThemePreviewToast),1800);}return;}return;}if(state_.mode==UiMode::SETTINGS){handleSettingsInput(pressed,nav);return;}
+if(isTransitioning())return;SceCtrlData p{};sceCtrlPeekBufferPositive(0,&p,1);static uint32_t prev=0;static uint64_t repeatAt=0;uint32_t mask=SCE_CTRL_UP|SCE_CTRL_DOWN|SCE_CTRL_LEFT|SCE_CTRL_RIGHT,pressed=p.buttons&~prev,direct=pressed&mask;uint64_t now=sceKernelGetProcessTimeWide(),repeat=0;if((p.buttons&mask)==0)repeatAt=0;else if(direct)repeatAt=now+DIRECTION_REPEAT_DELAY_US;else if(repeatAt&&now>=repeatAt){repeat=p.buttons&mask;repeatAt=now+DIRECTION_REPEAT_INTERVAL_US;}prev=p.buttons;uint32_t nav=direct|repeat;if(gProtectionActive&&pressed!=0){protectionDismiss();return;}if(themeSetupVisible_){const int themeCount=static_cast<int>(::psvitaalive::ColorTheme::Count);const int cols=3;const int visibleRows=5;auto afterMove=[&](){clampThemePickerScroll(themeSetupFocus_,themeSetupScrollRow_,themeCount,cols,visibleRows);};if(nav&SCE_CTRL_LEFT){if(themeSetupFocus_<themeCount){int c=themeSetupFocus_%cols;if(c>0){--themeSetupFocus_;afterMove();}}return;}if(nav&SCE_CTRL_RIGHT){if(themeSetupFocus_<themeCount){int c=themeSetupFocus_%cols;if(c<cols-1&&themeSetupFocus_+1<themeCount){++themeSetupFocus_;afterMove();}}return;}if(nav&SCE_CTRL_UP){  if(themeSetupFocus_==themeCount){themeSetupFocus_=std::max(0,themeCount-1);}  else if(themeSetupFocus_>=cols)themeSetupFocus_-=cols;  else if(themeSetupScrollRow_>0)--themeSetupScrollRow_;  afterMove();return;}if(nav&SCE_CTRL_DOWN){  if(themeSetupFocus_<themeCount){int n=themeSetupFocus_+cols;if(n<themeCount)themeSetupFocus_=n;else themeSetupFocus_=themeCount;}  afterMove();return;}if(pressed&SCE_CTRL_CROSS){if(themeSetupFocus_==themeCount){closeThemeSetup(true);}else if(themeSetupAppliedFocus_==themeSetupFocus_){closeThemeSetup(true);}else{applyThemeSetupFocus();themeSetupAppliedFocus_=themeSetupFocus_;showToast(::psvitaalive::L(::psvitaalive::TextId::ThemePreviewToast),1800);}return;}return;}if(state_.mode==UiMode::SETTINGS){handleSettingsInput(pressed,nav);return;}
 if(pressed&SCE_CTRL_SELECT){openSettings();return;}
 if(pressed&SCE_CTRL_START){
         if(installProgressActive_ && installOutcome_==0){
@@ -6320,6 +6491,63 @@ if (catalogSplashAlpha_ > 0.01f && !installProgressActive_) {
     return;
 }
 
+// Burn-in protection is intentionally restricted to active transfer/extract/install
+// phases. The normal progress/result UI returns immediately on phase changes/end.
+protectionTick();
+if (installProgressActive_ && installOutcome_ == 0 && gProtectionActive) {
+    const unsigned protectionBlack = RGBA8(0, 0, 0, 255);
+    vita2d_draw_rectangle(0, 0, SCREEN_W, SCREEN_H, protectionBlack);
+
+    using TID = ::psvitaalive::TextId;
+    const char* phaseText = ::psvitaalive::L(TID::StageDownloading);
+    if (gProtectionPhase == ProtectionPhase::Extracting)
+        phaseText = ::psvitaalive::L(TID::StageExtracting);
+    else if (gProtectionPhase == ProtectionPhase::Installing)
+        phaseText = ::psvitaalive::L(TID::StageInstalling);
+
+    const uint64_t total = installProgressTotal_;
+    const uint64_t current = std::min<uint64_t>(installProgressCurrent_, total ? total : installProgressCurrent_);
+    const bool determinate = total > 0;
+    const uint64_t pct = determinate ? std::min<uint64_t>(100, (current * 100) / total) : 0;
+    const bool etaKnown = installProgressSpeed_ > 0 && total > current;
+    const uint64_t eta = etaKnown ? (total - current) / installProgressSpeed_ : 0;
+
+    char progressLine[128];
+    if (determinate && etaKnown) {
+        sceClibSnprintf(progressLine, sizeof(progressLine), "%llu%%   %s: %s",
+            (unsigned long long)pct,
+            ::psvitaalive::L(TID::LabelEta),
+            formatEta(eta).c_str());
+    } else if (determinate) {
+        sceClibSnprintf(progressLine, sizeof(progressLine), "%llu%%   %s: --",
+            (unsigned long long)pct,
+            ::psvitaalive::L(TID::LabelEta));
+    } else {
+        sceClibSnprintf(progressLine, sizeof(progressLine), "--%%   %s: --",
+            ::psvitaalive::L(TID::LabelEta));
+    }
+
+    auto drawCentered = [&](const char* text, int baselineY, unsigned color, float preferredScale, float minScale) {
+        if (!text || !text[0] || !font_) return;
+        const int maxWidth = kProtectionBlockW - 24;
+        float sc = preferredScale;
+        while (sc > minScale && ::psvitaalive::ui::uiTextWidth(&font_, sc, text) > maxWidth)
+            sc -= 0.04f;
+        if (sc < minScale) sc = minScale;
+        const int tw = ::psvitaalive::ui::uiTextWidth(&font_, sc, text);
+        ::psvitaalive::ui::uiDrawText(&font_,
+            gProtectionX + (kProtectionBlockW - tw) / 2,
+            gProtectionY + baselineY,
+            color, sc, text);
+    };
+
+    // Logical 430x150 block; no panel/border is drawn so the rest remains pure black.
+    drawCentered("PSVitaAlive", 24, ACCENT, 0.82f, 0.62f);
+    drawCentered(phaseText, 54, TEXT, 0.86f, 0.62f);
+    drawCentered(progressLine, 86, ACCENT, 0.82f, 0.58f);
+    drawCentered(::psvitaalive::L("PROTECTION_PRESS_ANY_BUTTON"), 126, DIM, 0.64f, 0.46f);
+    return;
+}
 
 const unsigned RED=RGBA8(0xE0,0x32,0x32,255), GREEN=RGBA8(0x3B,0xD9,0x60,255), BLACK=RGBA8(0,0,0,255);
 const int w=900,h=508,x=(SCREEN_W-w)/2,y=(SCREEN_H-h)/2;
