@@ -27,10 +27,15 @@ jobs:
         run: |
           set -euo pipefail
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # Do not publish/apply the search result until CommonDialog has had
+          # the cooldown frames after sceImeDialogTerm(). This keeps catalog
+          # filtering/image work out of the keyboard teardown window.
+          sed -i 's/if (!resultReady_) return false;/if (!resultReady_ || state_ != State::Idle) return false;/' scripts/_temporary_ime_stress_fix.py
           python3 scripts/_temporary_ime_stress_fix.py
           git diff --check
           grep -n "enum class State { Idle, Running, Cooldown }" 'Client PSVitaAlive/source/main.cpp'
           grep -n "kCooldownFrames = 4" 'Client PSVitaAlive/source/main.cpp'
+          grep -n "!resultReady_ || state_ != State::Idle" 'Client PSVitaAlive/source/main.cpp'
           if sed -n '/class ImeController {/,/ImeController gIme;/p' 'Client PSVitaAlive/source/main.cpp' | grep -q 'sceSysmoduleLoadModule(SCE_SYSMODULE_IME)'; then
             echo 'ERROR: explicit IME module load remains'
             exit 1
@@ -47,8 +52,8 @@ jobs:
           cd 'Client PSVitaAlive'
           rm -rf ci-ime-build
           cmake -S . -B ci-ime-build
-          cmake --build ci-ime-build --target source/main.cpp.o -j2
-          cmake --build ci-ime-build --target source/ui/full_catalog_screen.cpp.o -j2
+          cmake --build ci-ime-build --target CMakeFiles/PSVitaAlive.dir/source/main.cpp.obj -j2
+          cmake --build ci-ime-build --target CMakeFiles/PSVitaAlive.dir/source/ui/full_catalog_screen.cpp.obj -j2
 
       - name: Commit correction and remove temporary files
         shell: bash
