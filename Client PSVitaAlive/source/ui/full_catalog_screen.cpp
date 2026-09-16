@@ -2381,6 +2381,7 @@ void FullCatalogScreen::flushDeferredTextureFrees(){
     if(deferredFreeTextures_.empty())return;
     // Previous frame has been presented; safe to return memory to vita2d.
     // Cap per frame so spam L/R cannot free dozens of textures in one shot (Vita3K crash).
+    const uint64_t perfStartUs=sceKernelGetProcessTimeWide();
     vita2d_wait_rendering_done();
     size_t n=0;
     while(!deferredFreeTextures_.empty() && n<MAX_DEFERRED_FREES_PER_FRAME){
@@ -2388,6 +2389,16 @@ void FullCatalogScreen::flushDeferredTextureFrees(){
         deferredFreeTextures_.erase(deferredFreeTextures_.begin());
         if(t)vita2d_free_texture(t);
         ++n;
+    }
+    const uint64_t perfEndUs=sceKernelGetProcessTimeWide();
+    const uint64_t perfUs=perfEndUs>=perfStartUs?perfEndUs-perfStartUs:0;
+    static uint64_t lastPerfLogUs=0;
+    if(perfUs>=8000ULL&&(lastPerfLogUs==0||perfEndUs-lastPerfLogUs>=1000000ULL)){
+        char m[160];
+        sceClibSnprintf(m,sizeof(m),"[Perf] deferred texture free slow us=%llu freed=%u remaining=%u",
+            (unsigned long long)perfUs,(unsigned)n,(unsigned)deferredFreeTextures_.size());
+        diagnostics::log(m);
+        lastPerfLogUs=perfEndUs;
     }
 }
 void FullCatalogScreen::releaseTextures(){
@@ -2504,7 +2515,7 @@ void FullCatalogScreen::shutdown(){
     if(ready_){vita2d_fini();ready_=false;}
     diagnostics::log("[UI] shutdown");
 }
-int FullCatalogScreen::totalRows()const{return catalogView().empty()?0:(int(catalogView().size())+2)/3;}int FullCatalogScreen::visibleRowsFull()const{return 3;}int FullCatalogScreen::visibleRowsSplit()const{return std::max(1,(SCREEN_H-HEADER_H-TABS_H-FOOTER_H-GRID_PAD*2)/(SPLIT_CARD_H+CARD_GAP));}int FullCatalogScreen::selectedIndex()const{return catalogView().empty()?-1:std::max(0,std::min(state_.focusIndex,(int)catalogView().size()-1));}void FullCatalogScreen::clampCatalogFocus(){if(catalogView().empty())state_.focusIndex=0;else state_.focusIndex=std::max(0,std::min(state_.focusIndex,(int)catalogView().size()-1));}void FullCatalogScreen::clampCatalogScroll(){if(catalogView().empty()){state_.catalogScrollRow=0;return;}int v=state_.mode==UiMode::FULL_CATALOG?visibleRowsFull():visibleRowsSplit();if(state_.mode==UiMode::FULL_CATALOG){int r=state_.focusIndex/3;if(r<state_.catalogScrollRow)state_.catalogScrollRow=r;if(r>=state_.catalogScrollRow+v)state_.catalogScrollRow=r-v+1;state_.catalogScrollRow=std::max(0,std::min(state_.catalogScrollRow,std::max(0,totalRows()-v)));}else{int m=std::max(0,(int)catalogView().size()-v);if(state_.focusIndex<state_.catalogScrollRow)state_.catalogScrollRow=state_.focusIndex;if(state_.focusIndex>=state_.catalogScrollRow+v)state_.catalogScrollRow=state_.focusIndex-v+1;state_.catalogScrollRow=std::max(0,std::min(state_.catalogScrollRow,m));}}
+int FullCatalogScreen::totalRows()const{return catalogView().empty()?0:(int(catalogView().size())+2)/3;}int FullCatalogScreen::visibleRowsFull()const{return 3;}int FullCatalogScreen::visibleRowsSplit()const{const int usable=SCREEN_H-HEADER_H-TABS_H-FOOTER_H-GRID_PAD*2;return std::max(1,(usable+CARD_GAP)/(SPLIT_CARD_H+CARD_GAP));}int FullCatalogScreen::selectedIndex()const{return catalogView().empty()?-1:std::max(0,std::min(state_.focusIndex,(int)catalogView().size()-1));}void FullCatalogScreen::clampCatalogFocus(){if(catalogView().empty())state_.focusIndex=0;else state_.focusIndex=std::max(0,std::min(state_.focusIndex,(int)catalogView().size()-1));}void FullCatalogScreen::clampCatalogScroll(){if(catalogView().empty()){state_.catalogScrollRow=0;return;}int v=state_.mode==UiMode::FULL_CATALOG?visibleRowsFull():visibleRowsSplit();if(state_.mode==UiMode::FULL_CATALOG){int r=state_.focusIndex/3;if(r<state_.catalogScrollRow)state_.catalogScrollRow=r;if(r>=state_.catalogScrollRow+v)state_.catalogScrollRow=r-v+1;state_.catalogScrollRow=std::max(0,std::min(state_.catalogScrollRow,std::max(0,totalRows()-v)));}else{int m=std::max(0,(int)catalogView().size()-v);if(state_.focusIndex<state_.catalogScrollRow)state_.catalogScrollRow=state_.focusIndex;if(state_.focusIndex>=state_.catalogScrollRow+v)state_.catalogScrollRow=state_.focusIndex-v+1;state_.catalogScrollRow=std::max(0,std::min(state_.catalogScrollRow,m));}}
 void FullCatalogScreen::sortItemsByDate(std::vector<CatalogItem>&v)const{std::stable_sort(v.begin(),v.end(),[](const CatalogItem&a,const CatalogItem&b){if(a.versionDate!=b.versionDate)return a.versionDate>b.versionDate;return lowerAscii(a.name)<lowerAscii(b.name);});}bool FullCatalogScreen::matchesSearch(const CatalogItem&i,const std::string&q)const{if(q.empty())return true;std::string x=lowerAscii(q),h=lowerAscii(i.name+"\n"+i.titleId+"\n"+i.author+"\n"+i.description+"\n"+i.longDescription+"\n"+i.category+"\n"+i.subcategory);return h.find(x)!=std::string::npos;}void FullCatalogScreen::rebuildFilteredItems() {
     items_.clear();
     if (searchQuery_.empty() && !dataFilesFilter_) {
@@ -4617,8 +4628,19 @@ void FullCatalogScreen::prepareImageTexture(const std::string&url,const std::str
     if(sceIoGetstat(path.c_str(),&stCheck)<0||stCheck.st_size<=0)return;
     vita2d_texture*t=nullptr;
     const char*e=extOf(path);
+    const uint64_t perfStartUs=sceKernelGetProcessTimeWide();
     if(std::strcmp(e,".jpg")==0||std::strcmp(e,".jpeg")==0)t=vita2d_load_JPEG_file(path.c_str());
     else t=vita2d_load_PNG_file(path.c_str());
+    const uint64_t perfEndUs=sceKernelGetProcessTimeWide();
+    const uint64_t perfUs=perfEndUs>=perfStartUs?perfEndUs-perfStartUs:0;
+    static uint64_t lastTexturePerfLogUs=0;
+    if(perfUs>=8000ULL&&(lastTexturePerfLogUs==0||perfEndUs-lastTexturePerfLogUs>=500000ULL)){
+        char pm[240];
+        sceClibSnprintf(pm,sizeof(pm),"[Perf] texture decode slow us=%llu ns=%s path=%s",
+            (unsigned long long)perfUs,ns.c_str(),path.c_str());
+        diagnostics::log(pm);
+        lastTexturePerfLogUs=perfEndUs;
+    }
     if(!t){failedTextureLoads.insert(path);SceIoStat st={};long long sz=-1;if(sceIoGetstat(path.c_str(),&st)>=0)sz=(long long)st.st_size;char m[700];sceClibSnprintf(m,sizeof(m),"[UI] texture load failed ns=%s path=%s size=%lld",ns.c_str(),path.c_str(),sz);diagnostics::log(m);return;}
     textures_[path]=t;textureOrder_.push_back(path);
 }
@@ -4795,20 +4817,20 @@ void FullCatalogScreen::drawImage(const std::string& url, const std::string& ns,
         return;
     }
 
-    if (imageCache_->isFailed(path)) {
-        vita2d_draw_rectangle(x, y, w, h, SURFACE2);
-        return;
-    }
-
-    if (!imageCache_->isReady(path)) {
-        // Soft nudge: if file already on disk, request() will mark ready; else may queue once.
-        // prepareVisibleTextures is the primary enqueue path for visible cells only.
-        drawImageLoadingPlaceholder(url, ns, x, y, w, h);
-        return;
-    }
-
+    // Fast path: once a GPU texture exists, draw it without locking ImageCache
+    // every frame. Cache state is only consulted while a texture is still missing.
     auto it = textures_.find(path);
     if (it == textures_.end() || !it->second) {
+        if (imageCache_->isFailed(path)) {
+            vita2d_draw_rectangle(x, y, w, h, SURFACE2);
+            return;
+        }
+        if (!imageCache_->isReady(path)) {
+            drawImageLoadingPlaceholder(url, ns, x, y, w, h);
+            return;
+        }
+        // The file is ready on disk; prepareVisibleTextures will decode at most
+        // one new GPU texture per frame. Keep the placeholder until then.
         drawImageLoadingPlaceholder(url, ns, x, y, w, h);
         return;
     }
@@ -7035,6 +7057,7 @@ void FullCatalogScreen::drawPluginRebootOverlay() {
 
 void FullCatalogScreen::drawFullCatalog(){vita2d_start_drawing();vita2d_set_clear_color(BG);vita2d_clear_screen();drawHeader(SCREEN_W);drawTabs(SCREEN_W);drawCatalogPanel(0,HEADER_H+TABS_H,SCREEN_W,SCREEN_H-HEADER_H-TABS_H-FOOTER_H,false);drawFooterBar(&font_, ::psvitaalive::L(::psvitaalive::TextId::FooterCatalog));drawReportChip();drawNewsChip();if(catalogLoading_||installProgressActive_||catalogSplashAlpha_>0.01f)drawLoadingOverlay();if(newsVisible_)drawNewsOverlay();if(themeSetupVisible_)drawThemeSetupOverlay();if(reportConfirmVisible_)drawReportConfirmOverlay();if(dataRequestConfirmVisible_)drawDataRequestConfirmOverlay();if(installAllPhase_!=InstallAllPhase::Hidden&&installAllPhase_!=InstallAllPhase::Running)drawInstallAllOverlay();if(essentialPluginsModal_)drawEssentialPluginsOverlay();if(pspSetupModal_)drawPspSetupOverlay();if(pluginRebootModal_)drawPluginRebootOverlay();if(!catalogError_.empty())::psvitaalive::ui::uiDrawText(&font_,18,HEADER_H+TABS_H+26,ACCENT,.66f,catalogError_.c_str());drawToast();finishFrameWithCommonDialog();}void FullCatalogScreen::drawSplitDetail(){vita2d_start_drawing();vita2d_set_clear_color(BG);vita2d_clear_screen();drawHeader(SCREEN_W);drawTabs(SCREEN_W);int top=HEADER_H+TABS_H,hh=SCREEN_H-HEADER_H-TABS_H-FOOTER_H,lw=SCREEN_W/2;drawCatalogPanel(0,top,lw,hh,true);drawDetailPanel(lw,top,SCREEN_W-lw,hh);vita2d_draw_rectangle(lw-1,top,2,hh,BORDER);drawFooterBar(&font_, state_.activePanel==UiPanel::Catalog ? ::psvitaalive::L(::psvitaalive::TextId::FooterDetailList) : ::psvitaalive::L(::psvitaalive::TextId::FooterDetailPanel));drawReportChip();drawNewsChip();if(catalogLoading_||installProgressActive_||catalogSplashAlpha_>0.01f)drawLoadingOverlay();if(newsVisible_)drawNewsOverlay();if(themeSetupVisible_)drawThemeSetupOverlay();if(reportConfirmVisible_)drawReportConfirmOverlay();if(dataRequestConfirmVisible_)drawDataRequestConfirmOverlay();if(installAllPhase_!=InstallAllPhase::Hidden&&installAllPhase_!=InstallAllPhase::Running)drawInstallAllOverlay();if(essentialPluginsModal_)drawEssentialPluginsOverlay();if(pspSetupModal_)drawPspSetupOverlay();if(pluginRebootModal_)drawPluginRebootOverlay();drawToast();finishFrameWithCommonDialog();}void FullCatalogScreen::drawOpeningDetail(){float p=transitionProgress();int lw=SCREEN_W-(int)(SCREEN_W/2*p),rw=SCREEN_W-lw;vita2d_start_drawing();vita2d_set_clear_color(BG);vita2d_clear_screen();drawHeader(SCREEN_W);drawTabs(SCREEN_W);int top=HEADER_H+TABS_H,hh=SCREEN_H-HEADER_H-TABS_H-FOOTER_H;drawCatalogPanel(0,top,lw,hh,true);if(rw>0)drawDetailPanel(lw,top,rw,hh);finishFrameWithCommonDialog();}void FullCatalogScreen::drawClosingDetail(){float p=1.0f-transitionProgress();int lw=SCREEN_W-(int)(SCREEN_W/2*p),rw=SCREEN_W-lw;vita2d_start_drawing();vita2d_set_clear_color(BG);vita2d_clear_screen();drawHeader(SCREEN_W);drawTabs(SCREEN_W);int top=HEADER_H+TABS_H,hh=SCREEN_H-HEADER_H-TABS_H-FOOTER_H;drawCatalogPanel(0,top,lw,hh,true);if(rw>0)drawDetailPanel(lw,top,SCREEN_W-lw,hh);finishFrameWithCommonDialog();}void FullCatalogScreen::draw(){switch(state_.mode){case UiMode::FULL_CATALOG:drawFullCatalog();break;case UiMode::OPENING_DETAIL:drawOpeningDetail();break;case UiMode::SPLIT_DETAIL:drawSplitDetail();break;case UiMode::CLOSING_DETAIL:drawClosingDetail();break;case UiMode::SETTINGS:drawSettings();break;}}bool FullCatalogScreen::updateAndDraw(){
     if(!ready_)return false;
+    const uint64_t frameStartUs=sceKernelGetProcessTimeWide();
     {
         static bool once = false;
         if (!once) {
@@ -7058,6 +7081,16 @@ void FullCatalogScreen::drawFullCatalog(){vita2d_start_drawing();vita2d_set_clea
     updateAnimations();
     if(catalogSwitchCooldownFrames_==0)prepareVisibleTextures();
     draw();
+    const uint64_t frameEndUs=sceKernelGetProcessTimeWide();
+    const uint64_t frameUs=frameEndUs>=frameStartUs?frameEndUs-frameStartUs:0;
+    static uint64_t lastSlowFrameLogUs=0;
+    if(frameUs>=25000ULL&&(lastSlowFrameLogUs==0||frameEndUs-lastSlowFrameLogUs>=2000000ULL)){
+        char pm[180];
+        sceClibSnprintf(pm,sizeof(pm),"[Perf] slow frame us=%llu mode=%d textures=%u deferred=%u",
+            (unsigned long long)frameUs,(int)state_.mode,(unsigned)textures_.size(),(unsigned)deferredFreeTextures_.size());
+        diagnostics::log(pm);
+        lastSlowFrameLogUs=frameEndUs;
+    }
     return !state_.requestExit;
 }
 
