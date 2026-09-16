@@ -29,115 +29,253 @@
 
 namespace {
 std::string installStatusText(const psvitaalive::InstallStatus&s){using S=psvitaalive::InstallStatus::State;if(s.state==S::Idle)return{};char b[384];uint64_t p=s.total?std::min<uint64_t>(100,(s.current*100)/s.total):0;sceClibSnprintf(b,sizeof(b),"%s | %s | %llu%% | %s",s.stage.c_str(),s.fileName.empty()?"file":s.fileName.c_str(),(unsigned long long)p,s.message.c_str());return b;}
-bool asciiToWide(const std::string&text,SceWChar16*out,size_t cap){if(!out||!cap)return false;size_t i=0;for(;i+1<cap&&i<text.size();++i){unsigned char c=(unsigned char)text[i];out[i]=(SceWChar16)(c<128?c:'?');}out[i]=0;return true;}
-std::string wideToAscii(const SceWChar16*t){if(!t)return{};std::string r;for(size_t i=0;t[i]&&i<2048;++i)r.push_back(t[i]<=0x7F?(char)t[i]:'?');return r;}
-bool promptText(const std::string& initial, const std::string& title, std::string& out) {
-    // Vita-safe IME (aligned with VitaSDK sample + VitaShell):
-    //   - sceAppUtilInit + sceCommonDialogSetConfigParam at startup
-    //   - separate UTF-16 buffers for initialText vs inputTextBuffer (same buffer crashes)
-    //   - no re-entry; term leftover dialogs before init
-    //   - render loop with vita2d_common_dialog_update()
-    static bool imeModuleLoaded = false;
-    static bool imeBusy = false;
-    if (imeBusy) {
-        sceClibPrintf("[UI] IME re-entry blocked\n");
-        return false;
-    }
-
-    if (!imeModuleLoaded) {
-        const int r = sceSysmoduleLoadModule(SCE_SYSMODULE_IME);
-        if (r < 0 && r != static_cast<int>(0x8002D013) /* already loaded variants vary */) {
-            // Some firmwares return success or "already loaded"; only hard-fail on real errors
-            // if status stays unusable after init.
-            sceClibPrintf("[UI] SCE_SYSMODULE_IME load: 0x%08X (continuing)\n", r);
+size_t utf8ToUtf16(const std::string& src, SceWChar16* dst, size_t cap) {
+    if (!dst || cap == 0) return 0;
+    size_t i = 0, out = 0;
+    while (i < src.size() && out + 1 < cap) {
+        const unsigned char c = static_cast<unsigned char>(src[i]);
+        uint32_t cp = 0xFFFD;
+        size_t step = 1;
+        if (c < 0x80) {
+            cp = c;
+        } else if ((c & 0xE0) == 0xC0 && i + 1 < src.size()) {
+            const unsigned char c1 = static_cast<unsigned char>(src[i + 1]);
+            if ((c1 & 0xC0) == 0x80) {
+                cp = ((c & 0x1F) << 6) | (c1 & 0x3F);
+                if (cp >= 0x80) step = 2; else cp = 0xFFFD;
+            }
+        } else if ((c & 0xF0) == 0xE0 && i + 2 < src.size()) {
+            const unsigned char c1 = static_cast<unsigned char>(src[i + 1]);
+            const unsigned char c2 = static_cast<unsigned char>(src[i + 2]);
+            if ((c1 & 0xC0) == 0x80 && (c2 & 0xC0) == 0x80) {
+                cp = ((c & 0x0F) << 12) | ((c1 & 0x3F) << 6) | (c2 & 0x3F);
+                if (cp >= 0x800 && !(cp >= 0xD800 && cp <= 0xDFFF)) step = 3; else cp = 0xFFFD;
+            }
+        } else if ((c & 0xF8) == 0xF0 && i + 3 < src.size()) {
+            const unsigned char c1 = static_cast<unsigned char>(src[i + 1]);
+            const unsigned char c2 = static_cast<unsigned char>(src[i + 2]);
+            const unsigned char c3 = static_cast<unsigned char>(src[i + 3]);
+            if ((c1 & 0xC0) == 0x80 && (c2 & 0xC0) == 0x80 && (c3 & 0xC0) == 0x80) {
+                cp = ((c & 0x07) << 18) | ((c1 & 0x3F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
+                if (cp >= 0x10000 && cp <= 0x10FFFF) step = 4; else cp = 0xFFFD;
+            }
         }
-        imeModuleLoaded = true;
-    }
-
-    // IMPORTANT: initialText and inputTextBuffer MUST be distinct (VitaShell / SDK sample).
-    constexpr SceUInt32 kMaxLen = 128; // enough for search; avoids huge stack + dialog stress
-    SceWChar16 inputBuf[kMaxLen + 1];
-    SceWChar16 initialBuf[kMaxLen + 1];
-    SceWChar16 titleBuf[SCE_IME_DIALOG_MAX_TITLE_LENGTH + 1];
-    sceClibMemset(inputBuf, 0, sizeof(inputBuf));
-    sceClibMemset(initialBuf, 0, sizeof(initialBuf));
-    sceClibMemset(titleBuf, 0, sizeof(titleBuf));
-
-    asciiToWide(initial, initialBuf, kMaxLen + 1);
-    asciiToWide(initial, inputBuf, kMaxLen + 1);
-    asciiToWide(title.empty() ? "Search" : title, titleBuf, SCE_IME_DIALOG_MAX_TITLE_LENGTH + 1);
-
-    SceImeDialogParam param;
-    sceImeDialogParamInit(&param);
-    // Broad language mask like VitaShell; still forced so dialog opens consistently.
-    param.supportedLanguages = 0x0001FFFF;
-    param.languagesForced = SCE_TRUE;
-    param.type = SCE_IME_TYPE_BASIC_LATIN;
-    param.option = SCE_IME_OPTION_NO_AUTO_CAPITALIZATION;
-    param.dialogMode = SCE_IME_DIALOG_DIALOG_MODE_WITH_CANCEL;
-    param.textBoxMode = SCE_IME_DIALOG_TEXTBOX_MODE_WITH_CLEAR;
-    param.title = titleBuf;
-    param.maxTextLength = kMaxLen;
-    param.initialText = initialBuf;
-    param.inputTextBuffer = inputBuf;
-    param.enterLabel = SCE_IME_ENTER_LABEL_SEARCH;
-
-    imeBusy = true;
-    const int initRes = sceImeDialogInit(&param);
-    if (initRes < 0) {
-        sceClibPrintf("[UI] sceImeDialogInit failed: 0x%08X\n", initRes);
-        // Best-effort cleanup if half-open
-        if (sceImeDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_NONE) {
-            sceImeDialogTerm();
+        if (cp <= 0xFFFF) {
+            dst[out++] = static_cast<SceWChar16>(cp);
+        } else {
+            if (out + 2 >= cap) break;
+            cp -= 0x10000;
+            dst[out++] = static_cast<SceWChar16>(0xD800 | (cp >> 10));
+            dst[out++] = static_cast<SceWChar16>(0xDC00 | (cp & 0x3FF));
         }
-        imeBusy = false;
-        return false;
+        i += step;
     }
+    dst[out] = 0;
+    return out;
+}
 
-    // Cap wait so a stuck dialog cannot hang the process forever.
-    int spin = 0;
-    bool aborted = false;
-    SceCommonDialogStatus status = SCE_COMMON_DIALOG_STATUS_NONE;
-    while ((status = sceImeDialogGetStatus()) != SCE_COMMON_DIALOG_STATUS_FINISHED) {
-        vita2d_start_drawing();
-        vita2d_clear_screen();
-        vita2d_draw_rectangle(0, 0, 960, 544, RGBA8(0, 0, 0, 180));
-        vita2d_end_drawing();
-        vita2d_common_dialog_update();
-        vita2d_swap_buffers();
-        sceKernelDelayThread(16 * 1000); // ~60 FPS pacing
-        if (++spin > 60 * 120) {
-            sceClibPrintf("[UI] IME wait timeout — aborting dialog\n");
-            sceImeDialogAbort();
-            aborted = true;
-            break;
+std::string utf16ToUtf8(const SceWChar16* src) {
+    std::string out;
+    if (!src) return out;
+    for (size_t i = 0; src[i] != 0 && i < 2048; ++i) {
+        uint32_t cp = src[i];
+        if (cp >= 0xD800 && cp <= 0xDBFF && src[i + 1] >= 0xDC00 && src[i + 1] <= 0xDFFF) {
+            cp = 0x10000 + ((cp - 0xD800) << 10) + (src[++i] - 0xDC00);
+        } else if (cp >= 0xD800 && cp <= 0xDFFF) {
+            cp = 0xFFFD;
+        }
+        if (cp < 0x80) {
+            out.push_back(static_cast<char>(cp));
+        } else if (cp < 0x800) {
+            out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else if (cp < 0x10000) {
+            out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else {
+            out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
         }
     }
+    return out;
+}
 
-    // Abort is asynchronous: let the common dialog reach FINISHED before reading
-    // the result or terminating it. This avoids tearing down an active IME state.
-    if (aborted) {
-        for (int cleanupSpin = 0; cleanupSpin < 120; ++cleanupSpin) {
-            status = sceImeDialogGetStatus();
-            if (status == SCE_COMMON_DIALOG_STATUS_FINISHED) break;
+class ImeController {
+public:
+    bool open(const std::string& initial, const std::string& title) {
+        if (state_ != State::Idle) {
+            psvitaalive::diagnostics::log("[UI] IME open blocked: previous session still draining");
+            return false;
+        }
+        if (!moduleLoadAttempted_) {
+            const int r = sceSysmoduleLoadModule(SCE_SYSMODULE_IME);
+            moduleLoadAttempted_ = true;
+            moduleOwned_ = (r >= 0);
+            char b[96];
+            sceClibSnprintf(b, sizeof(b), "[UI] SCE_SYSMODULE_IME load=0x%08X owned=%d", r, moduleOwned_ ? 1 : 0);
+            psvitaalive::diagnostics::log(b);
+        }
+
+        sceClibMemset(inputBuf_, 0, sizeof(inputBuf_));
+        sceClibMemset(initialBuf_, 0, sizeof(initialBuf_));
+        sceClibMemset(titleBuf_, 0, sizeof(titleBuf_));
+        utf8ToUtf16(initial, initialBuf_, kMaxLen + 1);
+        utf8ToUtf16(initial, inputBuf_, kMaxLen + 1);
+        utf8ToUtf16(title.empty() ? std::string("Search") : title, titleBuf_, SCE_IME_DIALOG_MAX_TITLE_LENGTH + 1);
+
+        SceImeDialogParam param;
+        sceImeDialogParamInit(&param);
+        param.supportedLanguages = 0x0001FFFF;
+        param.languagesForced = SCE_TRUE;
+        param.type = SCE_IME_TYPE_DEFAULT;
+        param.option = SCE_IME_OPTION_NO_AUTO_CAPITALIZATION;
+        param.dialogMode = SCE_IME_DIALOG_DIALOG_MODE_WITH_CANCEL;
+        param.textBoxMode = SCE_IME_DIALOG_TEXTBOX_MODE_WITH_CLEAR;
+        param.title = titleBuf_;
+        param.maxTextLength = kMaxLen;
+        param.initialText = initialBuf_;
+        param.inputTextBuffer = inputBuf_;
+        param.enterLabel = SCE_IME_ENTER_LABEL_SEARCH;
+
+        resultReady_ = false;
+        resultAccepted_ = false;
+        resultText_.clear();
+        noneFrames_ = 0;
+        ++sessionId_;
+
+        const int r = sceImeDialogInit(&param);
+        char b[128];
+        sceClibSnprintf(b, sizeof(b), "[UI] IME session=%u init=0x%08X", sessionId_, r);
+        psvitaalive::diagnostics::log(b);
+        if (r < 0) {
+            const SceCommonDialogStatus st = sceImeDialogGetStatus();
+            sceClibSnprintf(b, sizeof(b), "[UI] IME init failed status=%d", static_cast<int>(st));
+            psvitaalive::diagnostics::log(b);
+            state_ = (st == SCE_COMMON_DIALOG_STATUS_NONE) ? State::Idle : State::Draining;
+            return false;
+        }
+        state_ = State::Running;
+        return true;
+    }
+
+    void poll() {
+        if (state_ == State::Idle) return;
+        const SceCommonDialogStatus st = sceImeDialogGetStatus();
+        if (state_ == State::Running) {
+            if (st == SCE_COMMON_DIALOG_STATUS_FINISHED) {
+                SceImeDialogResult result{};
+                const int gr = sceImeDialogGetResult(&result);
+                resultAccepted_ = (gr >= 0 && result.button == SCE_IME_DIALOG_BUTTON_ENTER);
+                resultText_ = resultAccepted_ ? utf16ToUtf8(inputBuf_) : std::string();
+                const int tr = sceImeDialogTerm();
+                resultReady_ = true;
+                state_ = State::Draining;
+                noneFrames_ = 0;
+                char b[160];
+                sceClibSnprintf(b, sizeof(b),
+                    "[UI] IME session=%u finished get=0x%08X term=0x%08X accepted=%d",
+                    sessionId_, gr, tr, resultAccepted_ ? 1 : 0);
+                psvitaalive::diagnostics::log(b);
+            } else if (st == SCE_COMMON_DIALOG_STATUS_NONE) {
+                resultAccepted_ = false;
+                resultText_.clear();
+                resultReady_ = true;
+                state_ = State::Draining;
+                noneFrames_ = 1;
+                psvitaalive::diagnostics::log("[UI] IME returned NONE while running; cancelling session");
+            }
+            return;
+        }
+        if (st == SCE_COMMON_DIALOG_STATUS_NONE) {
+            if (++noneFrames_ >= kSettleFrames) {
+                state_ = State::Idle;
+                noneFrames_ = 0;
+                psvitaalive::diagnostics::log("[UI] IME drain complete");
+            }
+        } else {
+            noneFrames_ = 0;
+        }
+    }
+
+    bool takeFinished(std::string& text, bool& accepted) {
+        if (!resultReady_) return false;
+        text = resultText_;
+        accepted = resultAccepted_;
+        resultReady_ = false;
+        return true;
+    }
+
+    bool busy() const { return state_ != State::Idle; }
+
+    bool runBlocking(const std::string& initial, const std::string& title, std::string& out) {
+        if (!open(initial, title)) return false;
+        int frames = 0;
+        bool abortRequested = false;
+        while (busy()) {
+            vita2d_start_drawing();
+            vita2d_clear_screen();
+            vita2d_draw_rectangle(0, 0, 960, 544, RGBA8(0, 0, 0, 180));
+            vita2d_end_drawing();
             vita2d_common_dialog_update();
+            vita2d_swap_buffers();
+            poll();
+            if (!abortRequested && ++frames > 60 * 180) {
+                const int ar = sceImeDialogAbort();
+                char b[96];
+                sceClibSnprintf(b, sizeof(b), "[UI] IME blocking timeout abort=0x%08X", ar);
+                psvitaalive::diagnostics::log(b);
+                abortRequested = true;
+            }
             sceKernelDelayThread(16 * 1000);
         }
+        std::string text;
+        bool accepted = false;
+        if (!takeFinished(text, accepted)) return false;
+        if (accepted) out = text;
+        return accepted;
     }
 
-    SceImeDialogResult result{};
-    const int gr = sceImeDialogGetResult(&result);
-    if (gr < 0) {
-        sceClibPrintf("[UI] sceImeDialogGetResult failed: 0x%08X\n", gr);
-    }
-    const bool ok = (gr >= 0 && result.button == SCE_IME_DIALOG_BUTTON_ENTER);
-    if (ok) {
-        out = wideToAscii(inputBuf);
+    void shutdown() {
+        if (state_ != State::Idle) {
+            const SceCommonDialogStatus st = sceImeDialogGetStatus();
+            if (st == SCE_COMMON_DIALOG_STATUS_RUNNING) sceImeDialogAbort();
+            if (st != SCE_COMMON_DIALOG_STATUS_NONE) sceImeDialogTerm();
+        }
+        state_ = State::Idle;
+        resultReady_ = false;
+        if (moduleOwned_) {
+            const int r = sceSysmoduleUnloadModule(SCE_SYSMODULE_IME);
+            char b[96];
+            sceClibSnprintf(b, sizeof(b), "[UI] SCE_SYSMODULE_IME unload=0x%08X", r);
+            psvitaalive::diagnostics::log(b);
+        }
+        moduleOwned_ = false;
     }
 
-    sceImeDialogTerm();
-    imeBusy = false;
-    return ok;
+private:
+    enum class State { Idle, Running, Draining };
+    static constexpr SceUInt32 kMaxLen = 128;
+    static constexpr int kSettleFrames = 3;
+    State state_ = State::Idle;
+    bool moduleLoadAttempted_ = false;
+    bool moduleOwned_ = false;
+    bool resultReady_ = false;
+    bool resultAccepted_ = false;
+    unsigned sessionId_ = 0;
+    int noneFrames_ = 0;
+    std::string resultText_;
+    SceWChar16 inputBuf_[kMaxLen + 1]{};
+    SceWChar16 initialBuf_[kMaxLen + 1]{};
+    SceWChar16 titleBuf_[SCE_IME_DIALOG_MAX_TITLE_LENGTH + 1]{};
+};
+
+ImeController gIme;
+
+bool promptText(const std::string& initial, const std::string& title, std::string& out) {
+    return gIme.runBlocking(initial, title, out);
 }
 
 bool peekFrontTouch(int& outX, int& outY, bool& down) {
@@ -564,7 +702,12 @@ int main(){
 
     psvitaalive::ui::FullCatalogScreen screen;screen.setImageCache(&images);
     screen.setCatalogChangeCallback([&](psvitaalive::ui::CatalogType next){psvitaalive::diagnostics::log(std::string("[UI] catalog requested: ")+psvitaalive::ui::catalogName(next));images.cancelQueuedRequests();return catalogs.request(next);});
-    screen.setSearchCallback([&](const std::string&current){std::string result=current;if(promptText(current,"Search catalog",result))return result;return current;});
+    screen.setSearchCallback([&](const std::string& current){
+        if (!gIme.open(current, "Search catalog")) {
+            psvitaalive::diagnostics::log("[UI] search IME request rejected");
+            screen.showToast("Keyboard unavailable", 1800);
+        }
+    });
     screen.setInstallCancelCallback([&installer](){ installer.cancel(); });
     screen.setInstallAcknowledgeCallback([&installer](){ installer.acknowledgeResult(); });
     screen.setInstallCallbacks([&installer](const psvitaalive::ui::CatalogItem&item){psvitaalive::diagnostics::log("[UI] INSTALL REQUEST name="+item.name+" title_id="+item.titleId+" url="+item.downloadUrl);
@@ -731,7 +874,18 @@ int main(){
     psvitaalive::diagnostics::log("[Startup] entering main loop (pluginWarnPending=" +
         std::string(pluginWarnPending ? "1" : "0") + ")");
 
-while(screen.updateAndDraw()){
+while(true){
+        screen.setExternalInputBlocked(gIme.busy());
+        if(!screen.updateAndDraw()) break;
+
+        // CommonDialog was serviced during the frame. Poll IME only afterwards
+        // so FINISHED -> GetResult -> Term follows the VitaSDK ordering.
+        gIme.poll();
+        std::string imeText;
+        bool imeAccepted = false;
+        if(gIme.takeFinished(imeText, imeAccepted) && imeAccepted){
+            screen.completeSearch(imeText);
+        }
         // After a few frames, surface plugin warnings safely.
         if (pluginWarnPending) {
             ++pluginWarnFrames;
@@ -902,5 +1056,5 @@ const psvitaalive::InstallStatus cur=installer.status();using InstallState=psvit
         }
     }
 
-    screen.setInstallProgress(false,0,0,0,"","","",0,false,"","");screen.shutdown();installer.shutdown();catalogs.shutdown();images.shutdown();psvitaalive::diagnostics::log("PSVitaAlive session END");psvitaalive::diagnostics::shutdown();sceKernelExitProcess(0);return 0;
+    screen.setInstallProgress(false,0,0,0,"","","",0,false,"","");gIme.shutdown();screen.shutdown();installer.shutdown();catalogs.shutdown();images.shutdown();sceAppUtilShutdown();psvitaalive::diagnostics::log("PSVitaAlive session END");psvitaalive::diagnostics::shutdown();sceKernelExitProcess(0);return 0;
 }

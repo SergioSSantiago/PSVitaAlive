@@ -43,7 +43,7 @@ public:
     using InstallCancelFn = std::function<void()>;
     using InstallAcknowledgeFn = std::function<void()>;
     using CatalogChangeFn = std::function<bool(CatalogType)>;
-    using SearchRequestFn = std::function<std::string(const std::string&)>;
+    using SearchRequestFn = std::function<void(const std::string&)>;
     using LinkActionFn = std::function<bool(const CatalogItem&, const CatalogLink&)>;
 
     FullCatalogScreen();
@@ -57,6 +57,10 @@ public:
     void setInstallAcknowledgeCallback(InstallAcknowledgeFn callback);
     void setCatalogChangeCallback(CatalogChangeFn callback);
     void setSearchCallback(SearchRequestFn callback);
+    /** Apply text returned asynchronously by the system IME. */
+    void completeSearch(const std::string& query);
+    /** Block underlying catalog input while a system dialog owns controls/touch. */
+    void setExternalInputBlocked(bool blocked) { externalInputBlocked_ = blocked; }
     void setLinkActionCallback(LinkActionFn callback);
     void setImageCache(ImageCache* cache);
     void setCatalogItems(std::vector<CatalogItem> items);
@@ -128,6 +132,7 @@ private:
     bool ready_ = false;
 
     std::string searchQuery_;
+    bool externalInputBlocked_ = false;
     /** When true, catalogView only includes apps with G/D Files (Homebrew) or DLC (Vita/PSP). */
     bool dataFilesFilter_ = false;
 
