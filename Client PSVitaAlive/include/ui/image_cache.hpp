@@ -2,6 +2,7 @@
 
 #include <psp2/kernel/threadmgr.h>
 
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -12,10 +13,18 @@ namespace ui {
 
 class ImageCache {
 public:
+    enum class StartupMaintenancePhase {
+        Checking = 0,
+        Cleaning,
+        Ready
+    };
+    using StartupMaintenanceProgressFn =
+        std::function<void(StartupMaintenancePhase phase, uint64_t current, uint64_t total)>;
+
     ImageCache();
     ~ImageCache();
 
-    bool init();
+    bool init(const StartupMaintenanceProgressFn& startupProgress = StartupMaintenanceProgressFn());
     void shutdown();
 
     std::string request(const std::string& url, const std::string& namespaceName);
@@ -89,6 +98,7 @@ private:
     std::string makePath(const std::string& url, const std::string& namespaceName) const;
     bool contains(const std::vector<std::string>& values, const std::string& value) const;
     bool ensureDirectory(const std::string& path) const;
+    void enforceStartupDiskLimit(const StartupMaintenanceProgressFn& startupProgress);
     void pruneSupersededVersions(const std::string& currentPath);
     void markReady(const std::string& path);
     void markFailed(const std::string& path);

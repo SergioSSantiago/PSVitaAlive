@@ -704,6 +704,12 @@ int main(){
     psvitaalive::StorageManager storage;storage.initProjectDirs();
     psvitaalive::InstallController installer;psvitaalive::CatalogManager catalogs;psvitaalive::ui::ImageCache images;
     if(!installer.init())psvitaalive::diagnostics::log("[System] InstallController init failed");
+    if (!psvitaalive::LocalizationManager::instance().initialize(installer.settings())) {
+        psvitaalive::diagnostics::log("[System] LocalizationManager initialize failed — English fallback");
+    } else {
+        psvitaalive::diagnostics::log(std::string("[System] UI language=") +
+            psvitaalive::LocalizationManager::instance().currentLanguageName());
+    }
 
     psvitaalive::ui::FullCatalogScreen screen;screen.setImageCache(&images);
     screen.setCatalogChangeCallback([&](psvitaalive::ui::CatalogType next){psvitaalive::diagnostics::log(std::string("[UI] catalog requested: ")+psvitaalive::ui::catalogName(next));images.cancelQueuedRequests();return catalogs.request(next);});
@@ -843,7 +849,14 @@ int main(){
 
     // Catalog and image workers do not exist until the startup update phase is finished.
     if(!catalogs.init())psvitaalive::diagnostics::log("[System] CatalogManager init failed");
-    if(!images.init())psvitaalive::diagnostics::log("[System] ImageCache init failed");
+    auto imageCacheStartupProgress=[&screen](psvitaalive::ui::ImageCache::StartupMaintenancePhase phase,uint64_t current,uint64_t total){
+        const char*message=::psvitaalive::L("IMAGE_CACHE_CHECKING");
+        if(phase==psvitaalive::ui::ImageCache::StartupMaintenancePhase::Cleaning)message=::psvitaalive::L("IMAGE_CACHE_CLEANING");
+        else if(phase==psvitaalive::ui::ImageCache::StartupMaintenancePhase::Ready)message=::psvitaalive::L("IMAGE_CACHE_READY");
+        screen.setCatalogLoading(true,::psvitaalive::L("IMAGE_CACHE_LABEL"),current,total,message);
+        screen.updateAndDraw();
+    };
+    if(!images.init(imageCacheStartupProgress))psvitaalive::diagnostics::log("[System] ImageCache init failed");
     screen.setImageCache(&images);
 
     const int catalogCount=(int)psvitaalive::ui::CatalogType::Count;
@@ -858,12 +871,6 @@ int main(){
         
     screen.setAppSettings(installer.settings());
     screen.setPluginStatus(installer.plugins());
-    if (!psvitaalive::LocalizationManager::instance().initialize(installer.settings())) {
-        psvitaalive::diagnostics::log("[System] LocalizationManager initialize failed — English fallback");
-    } else {
-        psvitaalive::diagnostics::log(std::string("[System] UI language=") +
-            psvitaalive::LocalizationManager::instance().currentLanguageName());
-    }
     screen.setSettingsSaveCallback([&installer, &screen](const psvitaalive::AppSettingsData& s) {
         installer.setSettings(s);
         screen.setAppSettings(s);

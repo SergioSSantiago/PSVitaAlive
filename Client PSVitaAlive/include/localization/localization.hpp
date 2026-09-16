@@ -3,6 +3,7 @@
 #include "installer/app_settings.hpp"
 #include "localization/language.hpp"
 
+#include <cstring>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -418,6 +419,87 @@ private:
 };
 
 inline const char* L(TextId id) { return LocalizationManager::instance().get(id); }
-inline const char* L(const char* key) { return LocalizationManager::instance().get(key); }
+
+// The startup image-cache maintenance runs before normal catalog loading. Keep
+// these four messages localized even on current language packs that predate the
+// feature. A future .lang entry wins automatically because L(key) first asks
+// LocalizationManager::get(); this table is only a compatibility fallback.
+inline const char* startupImageCacheTextFallback(Language language, const char* key) {
+    if (!key) return nullptr;
+    int text = -1;
+    if (std::strcmp(key, "IMAGE_CACHE_LABEL") == 0) text = 0;
+    else if (std::strcmp(key, "IMAGE_CACHE_CHECKING") == 0) text = 1;
+    else if (std::strcmp(key, "IMAGE_CACHE_CLEANING") == 0) text = 2;
+    else if (std::strcmp(key, "IMAGE_CACHE_READY") == 0) text = 3;
+    if (text < 0) return nullptr;
+
+    switch (language) {
+        case Language::Spanish: {
+            static const char* const v[] = {
+                "Caché de imágenes", "Comprobando caché de imágenes...",
+                "Limpiando imágenes antiguas de la caché...", "Caché de imágenes lista"
+            };
+            return v[text];
+        }
+        case Language::French: {
+            static const char* const v[] = {
+                "Cache d'images", "Vérification du cache d'images...",
+                "Nettoyage des anciennes images en cache...", "Cache d'images prêt"
+            };
+            return v[text];
+        }
+        case Language::German: {
+            static const char* const v[] = {
+                "Bild-Cache", "Bild-Cache wird überprüft...",
+                "Alte zwischengespeicherte Bilder werden bereinigt...", "Bild-Cache bereit"
+            };
+            return v[text];
+        }
+        case Language::Italian: {
+            static const char* const v[] = {
+                "Cache immagini", "Controllo della cache immagini...",
+                "Pulizia delle vecchie immagini nella cache...", "Cache immagini pronta"
+            };
+            return v[text];
+        }
+        case Language::PortugueseBrazil: {
+            static const char* const v[] = {
+                "Cache de imagens", "Verificando o cache de imagens...",
+                "Limpando imagens antigas do cache...", "Cache de imagens pronto"
+            };
+            return v[text];
+        }
+        case Language::PortuguesePortugal: {
+            static const char* const v[] = {
+                "Cache de imagens", "A verificar a cache de imagens...",
+                "A limpar imagens antigas da cache...", "Cache de imagens pronta"
+            };
+            return v[text];
+        }
+        case Language::Russian: {
+            static const char* const v[] = {
+                "Кэш изображений", "Проверка кэша изображений...",
+                "Очистка старых изображений из кэша...", "Кэш изображений готов"
+            };
+            return v[text];
+        }
+        case Language::English:
+        default: {
+            static const char* const v[] = {
+                "Image cache", "Checking image cache...",
+                "Cleaning old cached images...", "Image cache ready"
+            };
+            return v[text];
+        }
+    }
+}
+
+inline const char* L(const char* key) {
+    LocalizationManager& manager = LocalizationManager::instance();
+    const char* resolved = manager.get(key);
+    if (!key || !resolved || std::strcmp(resolved, key) != 0) return resolved;
+    const char* startupFallback = startupImageCacheTextFallback(manager.currentLanguage(), key);
+    return startupFallback ? startupFallback : resolved;
+}
 
 } // namespace psvitaalive

@@ -27,6 +27,9 @@ constexpr int IMAGE_HTTP_ATTEMPTS = 8; // more tries so icon0 lands in cache (no
 constexpr uint64_t RETRY_COOLDOWN_US=3000000ULL;
 constexpr size_t MAX_INTERACTIVE_QUEUE=12;
 constexpr unsigned APP_IMAGE_MAX_DIM=128u,SCREENSHOT_IMAGE_MAX_DIM=512u;
+constexpr uint64_t STARTUP_IMAGE_CACHE_LIMIT_BYTES=200ULL*1024ULL*1024ULL;
+constexpr uint64_t STARTUP_IMAGE_CACHE_KEEP_BYTES=40ULL*1024ULL*1024ULL;
+constexpr size_t STARTUP_PROGRESS_STRIDE=8;
 unsigned maxImageDimForNamespace(const std::string&ns){return ns=="app"?APP_IMAGE_MAX_DIM:SCREENSHOT_IMAGE_MAX_DIM;}
 uint32_t fnv1a(const std::string&v){uint32_t h=2166136261u;for(unsigned char c:v){h^=c;h*=16777619u;}return h;}
 std::string hex32(uint32_t v){char b[16];sceClibSnprintf(b,sizeof(b),"%08X",v);return b;}
@@ -84,6 +87,49 @@ bool isObsoleteV3CatalogFile(const std::string&name){
     const size_t third=name.find('_',second+1);if(third!=std::string::npos)return false;
     return validCatalogPrefix(name.substr(first+1,second-first-1));
 }
+bool endsWith(const std::string&value,const char*suffix){if(!suffix)return false;const size_t n=std::strlen(suffix);return value.size()>=n&&value.compare(value.size()-n,n,suffix)==0;}
+bool isCachePayloadName(const std::string&name){return endsWith(name,".png")||endsWith(name,".img")||endsWith(name,".normalized");}
+bool isBucketDirectoryName(const std::string&name){
+    if(name.size()!=2)return false;
+    for(char c:name){
+        const bool digit=c>='0'&&c<='9';
+        const bool upper=c>='A'&&c<='F';
+        const bool lower=c>='a'&&c<='f';
+        if(!digit&&!upper&&!lower)return false;
+    }
+    return true;
+}
+uint64_t dateTimeKey(const SceDateTime&t){
+    uint64_t v=t.year;
+    v=v*13ULL+t.month;
+    v=v*32ULL+t.day;
+    v=v*24ULL+t.hour;
+    v=v*60ULL+t.minute;
+    v=v*60ULL+t.second;
+    v=v*1000000ULL+t.microsecond;
+    return v;
+}
+struct StartupCacheFile{std::string path;uint64_t size;uint64_t stamp;};
+void accountCacheEntry(const std::string&full,const SceIoDirent&ent,uint64_t&total,std::vector<StartupCacheFile>*files,uint32_t&tempRemoved){
+    const std::string name=ent.d_name;
+    if(!isCachePayloadName(name)||SCE_S_ISDIR(ent.d_stat.st_mode))return;
+    if(endsWith(name,".normalized")){
+        if(sceIoRemove(full.c_str())>=0){++tempRemoved;return;}
+    }
+    if(ent.d_stat.st_size<=0)return;
+    const uint64_t size=(uint64_t)ent.d_stat.st_size;
+    total+=size;
+    if(files){uint64_t stamp=dateTimeKey(ent.d_stat.st_mtime);if(stamp==0)stamp=dateTimeKey(ent.d_stat.st_ctime);files->push_back({full,size,stamp});}
+}
+void scanCachePayloadDirectory(const std::string&path,uint64_t&total,std::vector<StartupCacheFile>*files,uint32_t&tempRemoved){
+    SceUID dir=sceIoDopen(path.c_str());if(dir<0)return;
+    SceIoDirent ent;
+    while(sceIoDread(dir,&ent)>0){
+        if(std::strcmp(ent.d_name,".")==0||std::strcmp(ent.d_name,"..")==0||SCE_S_ISDIR(ent.d_stat.st_mode))continue;
+        accountCacheEntry(path+"/"+ent.d_name,ent,total,files,tempRemoved);
+    }
+    sceIoDclose(dir);
+}
 bool removeTreeRecursive(const std::string&path,uint32_t*files,uint64_t*bytes){
     SceUID fd=sceIoDopen(path.c_str());
     if(fd<0)return false;
@@ -135,7 +181,75 @@ bool normalizeImageForVita(const std::string&path,unsigned maxDim){unsigned char
 }
 ImageCache::ImageCache()=default;ImageCache::~ImageCache(){shutdown();}
 bool ImageCache::ensureDirectory(const std::string&p)const{StorageManager s;return s.createDirectories(p);}
-bool ImageCache::init(){
+void ImageCache::enforceStartupDiskLimit(const StartupMaintenanceProgressFn&startupProgress){
+    if(startupProgress)startupProgress(StartupMaintenancePhase::Checking,0,1);
+
+    uint64_t totalBytes=0;uint32_t tempRemoved=0;
+    std::vector<std::string>bucketDirs;
+    SceUID root=sceIoDopen(IMAGE_ROOT);
+    if(root>=0){
+        SceIoDirent ent;
+        while(sceIoDread(root,&ent)>0){
+            if(std::strcmp(ent.d_name,".")==0||std::strcmp(ent.d_name,"..")==0)continue;
+            const std::string name=ent.d_name;
+            const std::string full=std::string(IMAGE_ROOT)+"/"+name;
+            if(SCE_S_ISDIR(ent.d_stat.st_mode)){
+                if(isBucketDirectoryName(name))bucketDirs.push_back(full);
+                continue;
+            }
+            if(name==".per_image_v1")continue;
+            accountCacheEntry(full,ent,totalBytes,nullptr,tempRemoved);
+        }
+        sceIoDclose(root);
+    }
+    std::sort(bucketDirs.begin(),bucketDirs.end());
+    const uint64_t scanTotal=(uint64_t)bucketDirs.size()+1ULL;
+    if(startupProgress)startupProgress(StartupMaintenancePhase::Checking,1,scanTotal);
+    for(size_t i=0;i<bucketDirs.size();++i){
+        scanCachePayloadDirectory(bucketDirs[i],totalBytes,nullptr,tempRemoved);
+        const uint64_t done=(uint64_t)i+2ULL;
+        if(startupProgress&&(done==scanTotal||done%STARTUP_PROGRESS_STRIDE==0))startupProgress(StartupMaintenancePhase::Checking,done,scanTotal);
+    }
+
+    {char m[220];sceClibSnprintf(m,sizeof(m),"[ImageCache] startup cache size=%llu limit=%llu temp_removed=%u",(unsigned long long)totalBytes,(unsigned long long)STARTUP_IMAGE_CACHE_LIMIT_BYTES,(unsigned)tempRemoved);diagnostics::log(m);}
+    if(totalBytes<=STARTUP_IMAGE_CACHE_LIMIT_BYTES){if(startupProgress)startupProgress(StartupMaintenancePhase::Ready,1,1);return;}
+
+    if(startupProgress)startupProgress(StartupMaintenancePhase::Cleaning,0,1);
+    std::vector<StartupCacheFile>files;
+    uint64_t collectedBytes=0;uint32_t secondPassTempRemoved=0;
+    root=sceIoDopen(IMAGE_ROOT);
+    if(root>=0){
+        SceIoDirent ent;
+        while(sceIoDread(root,&ent)>0){
+            if(std::strcmp(ent.d_name,".")==0||std::strcmp(ent.d_name,"..")==0||SCE_S_ISDIR(ent.d_stat.st_mode))continue;
+            const std::string name=ent.d_name;if(name==".per_image_v1")continue;
+            accountCacheEntry(std::string(IMAGE_ROOT)+"/"+name,ent,collectedBytes,&files,secondPassTempRemoved);
+        }
+        sceIoDclose(root);
+    }
+    for(const std::string&dir:bucketDirs)scanCachePayloadDirectory(dir,collectedBytes,&files,secondPassTempRemoved);
+    totalBytes=collectedBytes;
+    if(totalBytes<=STARTUP_IMAGE_CACHE_KEEP_BYTES||files.empty()){if(startupProgress)startupProgress(StartupMaintenancePhase::Ready,1,1);return;}
+
+    std::sort(files.begin(),files.end(),[](const StartupCacheFile&a,const StartupCacheFile&b){if(a.stamp!=b.stamp)return a.stamp<b.stamp;return a.path<b.path;});
+    uint64_t simulated=totalBytes;size_t planned=0;
+    for(const StartupCacheFile&f:files){if(simulated<=STARTUP_IMAGE_CACHE_KEEP_BYTES)break;simulated=f.size>=simulated?0:simulated-f.size;++planned;}
+    if(planned==0){if(startupProgress)startupProgress(StartupMaintenancePhase::Ready,1,1);return;}
+
+    {char m[220];sceClibSnprintf(m,sizeof(m),"[ImageCache] startup trim begin before=%llu keep=%llu planned_files=%u",(unsigned long long)totalBytes,(unsigned long long)STARTUP_IMAGE_CACHE_KEEP_BYTES,(unsigned)planned);diagnostics::log(m);}
+    size_t completed=0,workTotal=planned,failed=0;const uint64_t beforeBytes=totalBytes;
+    if(startupProgress)startupProgress(StartupMaintenancePhase::Cleaning,0,(uint64_t)workTotal);
+    for(size_t i=0;i<files.size()&&totalBytes>STARTUP_IMAGE_CACHE_KEEP_BYTES;++i){
+        if(i>=workTotal)workTotal=i+1;
+        const StartupCacheFile&f=files[i];
+        if(sceIoRemove(f.path.c_str())>=0){totalBytes=f.size>=totalBytes?0:totalBytes-f.size;++completed;}
+        else ++failed;
+        if(startupProgress&&(((i+1)%4)==0||totalBytes<=STARTUP_IMAGE_CACHE_KEEP_BYTES||i+1==files.size()))startupProgress(StartupMaintenancePhase::Cleaning,(uint64_t)completed,(uint64_t)workTotal);
+    }
+    {char m[260];sceClibSnprintf(m,sizeof(m),"[ImageCache] startup trim complete removed=%u failed=%u before=%llu after=%llu target=%llu",(unsigned)completed,(unsigned)failed,(unsigned long long)beforeBytes,(unsigned long long)totalBytes,(unsigned long long)STARTUP_IMAGE_CACHE_KEEP_BYTES);diagnostics::log(m);}
+    if(startupProgress)startupProgress(StartupMaintenancePhase::Ready,1,1);
+}
+bool ImageCache::init(const StartupMaintenanceProgressFn&startupProgress){
     if(workerThread_>=0)return true;
     SceIoStat legacyStat={};
     if(sceIoGetstat(LEGACY_IMAGE_ROOT,&legacyStat)>=0&&SCE_S_ISDIR(legacyStat.st_mode)){
@@ -145,6 +259,7 @@ bool ImageCache::init(){
     }
     if(!ensureDirectory(IMAGE_ROOT))return false;
     cleanupUnpublishedV3Draft();
+    enforceStartupDiskLimit(startupProgress);
     ensureDirectory("ux0:data/psvitaalive/logs");
     mutex_=sceKernelCreateMutex("PSVitaAliveImageCache",0,0,nullptr);if(mutex_<0)return false;stopping_=false;cancelRequested_=false;workerThread_=sceKernelCreateThread("PSVitaAliveImageWorker",&ImageCache::workerEntry,WORKER_PRIORITY,WORKER_STACK,0,0,nullptr);if(workerThread_<0){sceKernelDeleteMutex(mutex_);mutex_=-1;return false;}ImageCache*self=this;int r=sceKernelStartThread(workerThread_,sizeof(self),&self);if(r<0){sceKernelDeleteThread(workerThread_);workerThread_=-1;sceKernelDeleteMutex(mutex_);mutex_=-1;return false;}diagnostics::log("[ImageCache] worker initialized cache=v3 replacement=per-image catalogs=H,PV,PSP,PS1");return true;
 }
