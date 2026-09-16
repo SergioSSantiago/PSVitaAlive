@@ -74,6 +74,12 @@ private:
     std::vector<std::string> failed_;
     std::unordered_map<std::string, uint64_t> retryAfter_;
 
+    // Per-catalog image manifest state. The parser writes a tiny revisioned
+    // manifest for H/PV/PSP/PS1; ImageCache uses it to garbage-collect stale
+    // files without loading other catalogs into RAM.
+    std::unordered_map<std::string, uint64_t> manifestRevision_;
+    std::unordered_map<std::string, uint64_t> manifestCheckAfter_;
+
     std::string currentFile_;
     std::string currentPath_;
     uint64_t currentDownloaded_ = 0;
@@ -89,6 +95,7 @@ private:
     std::string makePath(const std::string& url, const std::string& namespaceName) const;
     bool contains(const std::vector<std::string>& values, const std::string& value) const;
     bool ensureDirectory(const std::string& path) const;
+    void pruneCatalogIfNeeded(const std::string& catalogPrefix);
     void markReady(const std::string& path);
     void markFailed(const std::string& path);
 };

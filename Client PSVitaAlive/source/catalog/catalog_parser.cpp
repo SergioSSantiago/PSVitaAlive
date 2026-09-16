@@ -3,6 +3,7 @@
 #include <psp2/json.h>
 #include <psp2/sysmodule.h>
 #include <psp2/kernel/clib.h>
+#include <psp2/kernel/threadmgr.h>
 #include <psp2/io/fcntl.h>
 
 #include <cstdlib>
@@ -12,6 +13,9 @@
 namespace psvitaalive {
 
 namespace {
+
+constexpr const char* IMAGE_MANIFEST_ROOT = "ux0:data/psvitaalive/cache/catalog";
+constexpr const char* IMAGE_CATALOG_TAG = "psva_cat=";
 
 class VitaJsonAllocator : public sce::Json::MemAllocator {
 public:
@@ -80,6 +84,58 @@ void parseStringArray(const sce::Json::Value& object, const char* key, std::vect
     }
 }
 
+const char* imageCatalogPrefixForPath(const std::string& path) {
+    if (path.find("catalog_psvita_games.json") != std::string::npos) return "PV";
+    if (path.find("catalog_psp_games.json") != std::string::npos) return "PSP";
+    if (path.find("catalog_ps1_games.json") != std::string::npos) return "PS1";
+    return "H";
+}
+
+bool isAuthoritativeCatalogPath(const std::string& path) {
+    // CatalogManager validates network downloads as <catalog>.new first. Do not
+    // publish a cleanup manifest from that speculative file: it becomes
+    // authoritative only after the manager successfully promotes it.
+    return path.find(".new") == std::string::npos &&
+           path.find(".tmp") == std::string::npos;
+}
+
+std::string tagCatalogImageUrl(const std::string& url, const char* prefix) {
+    if (url.empty() || !prefix || !*prefix) return url;
+    if (url.find("#psva_cat=") != std::string::npos ||
+        url.find("&psva_cat=") != std::string::npos) {
+        return url;
+    }
+    std::string tagged = url;
+    tagged += (url.find('#') == std::string::npos) ? '#' : '&';
+    tagged += IMAGE_CATALOG_TAG;
+    tagged += prefix;
+    return tagged;
+}
+
+std::string imageManifestPath(const char* prefix) {
+    return std::string(IMAGE_MANIFEST_ROOT) + "/images_" + prefix + ".manifest";
+}
+
+bool writeAll(SceUID fd, const char* data, size_t size) {
+    if (fd < 0 || !data) return false;
+    size_t written = 0;
+    while (written < size) {
+        const int result = sceIoWrite(fd, data + written, static_cast<SceSize>(size - written));
+        if (result <= 0) return false;
+        written += static_cast<size_t>(result);
+    }
+    return true;
+}
+
+bool writeManifestLine(SceUID fd, const char* imageNamespace, const std::string& url) {
+    if (fd < 0 || !imageNamespace || url.empty()) return true;
+    std::string line(imageNamespace);
+    line.push_back(static_cast<char>(9));
+    line += url;
+    line.push_back(static_cast<char>(10));
+    return writeAll(fd, line.data(), line.size());
+}
+
 std::string makeDownloadFileName(const std::string& url, const std::string& id) {
     if (url.empty()) return {};
     std::string clean = url;
@@ -139,10 +195,10 @@ void parseLinks(const sce::Json::Value& application, ui::CatalogItem& item, SceU
             if (z.empty()) z = getString(link, "license");
             if (!z.empty() && zrifIdxFd >= 0) {
                 sceIoWrite(zrifIdxFd, url.c_str(), static_cast<SceSize>(url.size()));
-                const char tab = '\t';
+                const char tab = static_cast<char>(9);
                 sceIoWrite(zrifIdxFd, &tab, 1);
                 sceIoWrite(zrifIdxFd, z.c_str(), static_cast<SceSize>(z.size()));
-                const char nl = '\n';
+                const char nl = static_cast<char>(10);
                 sceIoWrite(zrifIdxFd, &nl, 1);
                 if (zrifWritten) ++(*zrifWritten);
             }
@@ -163,8 +219,8 @@ void parseLinks(const sce::Json::Value& application, ui::CatalogItem& item, SceU
         {
             std::string ep = getString(link, "extract_path");
             if (ep.empty()) ep = getString(link, "extractPath");
-            while (!ep.empty() && (ep.front() == ' ' || ep.front() == '	')) ep.erase(ep.begin());
-            while (!ep.empty() && (ep.back() == ' ' || ep.back() == '	')) ep.pop_back();
+            while (!ep.empty() && (ep.front() == ' ' || ep.front() == static_cast<char>(9))) ep.erase(ep.begin());
+            while (!ep.empty() && (ep.back() == ' ' || ep.back() == static_cast<char>(9))) ep.pop_back();
             if (!ep.empty()) {
                 if (ep.back() != '/' && ep.back() != ':') ep.push_back('/');
                 detail.extractPath = ep;
@@ -174,13 +230,13 @@ void parseLinks(const sce::Json::Value& application, ui::CatalogItem& item, SceU
         {
             detail.section = getString(link, "section");
             detail.line = getString(link, "line");
-            while (!detail.section.empty() && (detail.section.front() == ' ' || detail.section.front() == '	'))
+            while (!detail.section.empty() && (detail.section.front() == ' ' || detail.section.front() == static_cast<char>(9)))
                 detail.section.erase(detail.section.begin());
-            while (!detail.section.empty() && (detail.section.back() == ' ' || detail.section.back() == '	'))
+            while (!detail.section.empty() && (detail.section.back() == ' ' || detail.section.back() == static_cast<char>(9)))
                 detail.section.pop_back();
-            while (!detail.line.empty() && (detail.line.front() == ' ' || detail.line.front() == '	'))
+            while (!detail.line.empty() && (detail.line.front() == ' ' || detail.line.front() == static_cast<char>(9)))
                 detail.line.erase(detail.line.begin());
-            while (!detail.line.empty() && (detail.line.back() == ' ' || detail.line.back() == '	'))
+            while (!detail.line.empty() && (detail.line.back() == ' ' || detail.line.back() == static_cast<char>(9)))
                 detail.line.pop_back();
             // Default extract_path for plugins when omitted.
             const std::string typLower = type;
@@ -238,6 +294,7 @@ bool CatalogParser::parseFile(const std::string& path, std::vector<ui::CatalogIt
     const int moduleResult = sceSysmoduleLoadModule(SCE_SYSMODULE_JSON);
     if (moduleResult < 0) {
         sceClibPrintf("[CatalogParser] Failed to load JSON module: 0x%08X\n", moduleResult);
+        if (zrifIdxFd >= 0) sceIoClose(zrifIdxFd);
         return false;
     }
 
@@ -251,6 +308,7 @@ bool CatalogParser::parseFile(const std::string& path, std::vector<ui::CatalogIt
     const int initResult = initializer.initialize(&params);
     if (initResult < 0) {
         sceClibPrintf("[CatalogParser] JSON initializer failed: 0x%08X\n", initResult);
+        if (zrifIdxFd >= 0) sceIoClose(zrifIdxFd);
         return false;
     }
 
@@ -259,7 +317,30 @@ bool CatalogParser::parseFile(const std::string& path, std::vector<ui::CatalogIt
     if (parseResult < 0) {
         sceClibPrintf("[CatalogParser] JSON parse failed: 0x%08X\n", parseResult);
         initializer.terminate();
+        if (zrifIdxFd >= 0) sceIoClose(zrifIdxFd);
         return false;
+    }
+
+    const char* imagePrefix = imageCatalogPrefixForPath(path);
+    const bool publishManifest = isAuthoritativeCatalogPath(path);
+    const std::string manifestPath = imageManifestPath(imagePrefix);
+    const std::string manifestTemp = manifestPath + ".new";
+    SceUID manifestFd = -1;
+    bool manifestOk = false;
+    if (publishManifest) {
+        sceIoRemove(manifestTemp.c_str());
+        manifestFd = sceIoOpen(
+            manifestTemp.c_str(), SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0666);
+        manifestOk = manifestFd >= 0;
+        if (manifestOk) {
+            char header[80];
+            const int len = sceClibSnprintf(
+                header, sizeof(header), "PSVAIMG1 %llu",
+                static_cast<unsigned long long>(sceKernelGetSystemTimeWide()));
+            manifestOk = len > 0 && writeAll(manifestFd, header, static_cast<size_t>(len));
+            const char nl = static_cast<char>(10);
+            if (manifestOk) manifestOk = writeAll(manifestFd, &nl, 1);
+        }
     }
 
     const sce::Json::Array& applications = root.getArray();
@@ -303,11 +384,40 @@ bool CatalogParser::parseFile(const std::string& path, std::vector<ui::CatalogIt
             continue;
         }
 
+        // Internal-only catalog tag. It never reaches libcurl: ImageCache strips
+        // it before network I/O, but uses it to produce H/PV/PSP/PS1 filenames.
+        item.icon = tagCatalogImageUrl(item.icon, imagePrefix);
+        item.cover = tagCatalogImageUrl(item.cover, imagePrefix);
+        for (std::string& screenshot : item.screenshots) {
+            screenshot = tagCatalogImageUrl(screenshot, imagePrefix);
+        }
+
+        if (manifestOk) {
+            manifestOk = writeManifestLine(manifestFd, "app", item.icon) && manifestOk;
+            manifestOk = writeManifestLine(manifestFd, "app", item.cover) && manifestOk;
+            for (const std::string& screenshot : item.screenshots) {
+                manifestOk = writeManifestLine(manifestFd, "shot", screenshot) && manifestOk;
+            }
+        }
+
         outItems.push_back(std::move(item));
     }
 
     initializer.terminate();
     if (zrifIdxFd >= 0) sceIoClose(zrifIdxFd);
+    if (manifestFd >= 0) sceIoClose(manifestFd);
+
+    if (publishManifest) {
+        if (!outItems.empty() && manifestOk) {
+            sceIoRemove(manifestPath.c_str());
+            if (sceIoRename(manifestTemp.c_str(), manifestPath.c_str()) < 0) {
+                sceIoRemove(manifestTemp.c_str());
+            }
+        } else {
+            sceIoRemove(manifestTemp.c_str());
+        }
+    }
+
     sceClibPrintf("[CatalogParser] Loaded %u applications (zrif index entries=%u)\n",
                   static_cast<unsigned>(outItems.size()),
                   static_cast<unsigned>(zrifWritten));
