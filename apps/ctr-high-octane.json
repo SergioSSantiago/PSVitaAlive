@@ -12,8 +12,8 @@
     "arcade",
     "racing"
   ],
-  "version": "1.4",
-  "version_date": "2026-09-14",
+  "version": "1.4.1",
+  "version_date": "2026-09-15",
   "requirements": "- libshacccg.suprx\n- Game Data Files: PS1",
   "size": 3565158,
   "status": "Verified",
@@ -21,7 +21,7 @@
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://archive.org/download/crash-team-racing-high-optane/ctr%20v1.4.vpk",
+      "url": "https://archive.org/download/crash-team-racing-high-optane/ctr%20v.1.4.1.vpk",
       "size": 3565158,
       "recommended": true
     },

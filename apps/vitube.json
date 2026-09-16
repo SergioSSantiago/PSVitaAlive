@@ -13,8 +13,8 @@
     "video-player",
     "streaming"
   ],
-  "version": "1.2",
-  "version_date": "2026-09-08",
+  "version": "2.0",
+  "version_date": "2026-09-15",
   "requirements": "- requires HENkaku/Ensō",
   "size": 4194304,
   "status": "Verified",
@@ -22,7 +22,7 @@
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://archive.org/download/vi-tube-psvita/ViTube%20v1.2.vpk",
+      "url": "https://archive.org/download/vi-tube-psvita/ViTube%20v2.0.vpk",
       "size": 4194304,
       "recommended": true
     },
