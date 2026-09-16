@@ -52,8 +52,17 @@ jobs:
           cd 'Client PSVitaAlive'
           rm -rf ci-ime-build
           cmake -S . -B ci-ime-build
-          cmake --build ci-ime-build --target CMakeFiles/PSVitaAlive.dir/source/main.cpp.obj -j2
-          cmake --build ci-ime-build --target CMakeFiles/PSVitaAlive.dir/source/ui/full_catalog_screen.cpp.obj -j2
+          set +e
+          cmake --build ci-ime-build --target PSVitaAlive -j2 2>&1 | tee /tmp/psvitaalive-ime-build.log
+          build_rc=${PIPESTATUS[0]}
+          set -e
+          test -f 'ci-ime-build/CMakeFiles/PSVitaAlive.dir/source/main.cpp.obj'
+          test -f 'ci-ime-build/CMakeFiles/PSVitaAlive.dir/source/ui/full_catalog_screen.cpp.obj'
+          if grep -E 'source/(main|ui/full_catalog_screen)\.cpp.*(fatal error:|error:)' /tmp/psvitaalive-ime-build.log; then
+            echo 'ERROR: IME-related source failed compilation'
+            exit 1
+          fi
+          echo "Changed IME/UI objects compiled successfully (overall target rc=${build_rc}; final link may fail on existing OpenSSL/pthread mismatch)."
 
       - name: Commit correction and remove temporary files
         shell: bash
