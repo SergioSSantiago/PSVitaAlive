@@ -1,13 +1,13 @@
 # `source/ui/` — Native UI
 
-Rendered with **vita2d** (960×544). Default accent is the store green (`#3BFF00`); users switch **color themes**, **UI fonts**, and **language** in Settings.
+Rendered with **vita2d** (960×544). Default accent is the store green (`#3BFF00`); users can switch **color themes**, **UI fonts**, and **language** in Settings.
 
 ## Main surface
 
 `FullCatalogScreen` covers:
 
 - Full catalog grid and split detail view
-- Catalog loading (splash art when configured)
+- Catalog/startup loading overlays (splash art when configured)
 - Settings (install method, PSP/PS1 target, PSP media, **language**, **UI font**, **color theme**, plugin warnings, image warmup, self-update)
 - Download / install progress and result overlays (success, failure, **Download cancelled**, ZIP complete)
 - Install All wizard and mirror/link pickers
@@ -17,13 +17,59 @@ Rendered with **vita2d** (960×544). Default accent is the store green (`#3BFF00
 - Essential plugins modal and plugin **reboot** modal
 - Report / data-request confirms
 
+## Image cache v3
+
+The UI image cache is implemented in `image_cache.cpp` / `image_cache.hpp` and is documented in detail in [`../../../docs/IMAGE_CACHE.md`](../../../docs/IMAGE_CACHE.md).
+
+Current behaviour:
+
+- Images are loaded **on demand** and reused from disk when present.
+- Catalog-aware scopes are `H` (Homebrew), `PV` (PS Vita), `PSP`, and `PS1`.
+- Each icon/cover/screenshot has a **stable resource identity** independent of its current URL.
+- Cache files include both the stable resource identity and the current URL hash.
+- If an image URL changes, the new version downloads first; after successful validation, only older versions of that **same resource** are removed.
+- A changed icon cannot remove a cover or screenshot, and one catalog cannot remove another catalog's images.
+- Resource files are spread over **256 buckets** under `ux0:data/psvitaalive/cache/images/v3/` so per-image replacement does not scan the whole cache.
+- Existing `/app_` and `/shot_` path classification remains compatible with the texture-management logic in `FullCatalogScreen`.
+
+### Startup disk cap
+
+Global cache-size maintenance happens **only at startup**, before the ImageCache worker is created:
+
+```text
+cache <= 200 MiB
+→ no global eviction
+
+cache > 200 MiB
+→ remove oldest complete image files
+→ leave approximately <= 40 MiB
+```
+
+The first pass only measures the cache and removes abandoned `.normalized` temporaries. The more expensive metadata collection + sort pass is created only when the 200 MiB limit has actually been exceeded.
+
+Deletion is always whole-file `sceIoRemove()`; images are never truncated to hit an exact byte target. If a deletion fails, its size is not deducted from the running total.
+
+### Startup progress UI
+
+`ImageCache::init()` accepts a startup-maintenance callback. `main.cpp` maps the cache phases to the existing loading overlay:
+
+```text
+Checking image cache...
+Cleaning old cached images...
+Image cache ready
+```
+
+The overlay is redrawn with `FullCatalogScreen::updateAndDraw()` while maintenance runs. Progress is based on scanned buckets during checking and whole-file cleanup work during eviction—not partial bytes from an image file.
+
+After startup maintenance, the normal image path is unchanged: an evicted image is simply a cache miss and downloads again when requested.
+
 ## Color themes
 
 - Many distinct named palettes (`ColorTheme` in `app_settings.hpp`).
 - First launch: theme grid before News (`theme_setup_done`).
 - Settings opens the same grid (not a simple Left/Right cycle).
 - **Preview then confirm:** first X/tap previews; second activation on the same theme **or** **Save** commits.
-- **Cross-fade (~420 ms):** `applyColorTheme(..., animate)` interpolates BG, SURFACE*, PANEL, BORDER, TEXT, DIM, ACCENT* with smoothstep (`tickThemeBlend` in `updateAnimations`).
+- **Cross-fade (~420 ms):** `applyColorTheme(..., animate)` interpolates BG, SURFACE*, PANEL, BORDER, TEXT, DIM, ACCENT* with smoothstep (`tickThemeBlend` in `updateAnimations`).
 - Startup / config load uses `animate=false` (instant).
 - Brand full-colour logo/splash only for **NeonLime / PsVitaAlive**; other themes use monochrome assets + accent tint.
 
@@ -40,8 +86,23 @@ Config: `ui_font_style`. Missing system files fall back to Default.
 
 ## Multilanguage
 
-Strings go through `LocalizationManager` + `TextId` + `app0:lang/*.lang`.  
-UI chrome is translated (EN/ES); catalog JSON is not. See [docs/MULTILANGUAGE.md](../../../docs/MULTILANGUAGE.md).
+Strings go through `LocalizationManager` + `TextId` + `app0:lang/*.lang`.
+
+Currently packaged language files are:
+
+```text
+en, es, fr, de, it, pt-PT, pt-BR, ru
+```
+
+The internal language registry supports additional Vita languages, but a language is selectable only when its `.lang` asset is actually present.
+
+Catalog JSON is not translated. See [`../../../docs/MULTILANGUAGE.md`](../../../docs/MULTILANGUAGE.md).
+
+### Startup localization ordering
+
+`LocalizationManager` is initialized in `main.cpp` immediately after installer/settings initialization and **before** image-cache startup maintenance. This allows the cache checking/cleaning messages to appear in the user's selected or System-resolved language before normal catalog loading begins.
+
+The cache-maintenance strings have compatibility fallbacks for all currently packaged languages. If a `.lang` later defines those same keys, the normal `.lang` value wins.
 
 ## Progress overlay & lock messaging
 
@@ -51,6 +112,8 @@ While a download/install job is active:
 - Large-type **LOCKED** banner: PS button and soft power menu disabled; screen stays on
 - CIRCLE cancels (in progress) or acknowledges (result); other keys toast LOCKED
 - Touch must match resized panels (do not leave hitboxes on old coordinates)
+
+Startup image-cache maintenance uses the same loading-overlay infrastructure but is not an install/download lock state.
 
 ## Theme / News / Settings scroll
 

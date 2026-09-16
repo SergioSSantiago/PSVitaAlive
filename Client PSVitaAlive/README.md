@@ -14,15 +14,16 @@ Native catalog client for PlayStation Vita / PSTV (and Vita3K for testing).
 ## Features (high level)
 
 - Catalogs: **Homebrew**, **Vita Games**, **PSP**, **PS1** (all four can stay cached in RAM after first load)
-- Search, Settings (install method, **PSP/PS1 target**, **PSP media** Folder/ISO, **color theme**, **UI font**, **language** System/EN/ES), touch + buttons
+- Search, Settings (install method, **PSP/PS1 target**, **PSP media** Folder/ISO, **color theme**, **UI font**, **language** System/manual), touch + buttons
 - Header **content filters**: Homebrew **G/D Files**; Vita Games & PSP **DLC** (same toggle chip behaviour)
-- **Multilanguage UI** (`app0:lang/en.lang`, `es.lang`): Settings, catalog/nav, detail, download/install overlays, theme picker, many dialogs — catalog content stays original language
+- **Multilanguage UI** (`app0:lang/*.lang`): currently packaged **EN / ES / FR / DE / IT / PT-PT / PT-BR / RU**; missing keys fall back to English; catalog content stays original language
 - **News** from repo `news.txt`; optional Discord **Report** on real errors (and dedicated data-request webhook path)
-- Image cache with on-demand loading; **Data Files / Game Files** indicators on app cards
+- **Image cache v3** with on-demand loading, catalog/resource-aware replacement and startup disk cap: if cache exceeds **200 MiB**, startup trims oldest complete images to about **40 MiB**; see [`../docs/IMAGE_CACHE.md`](../docs/IMAGE_CACHE.md)
+- **Data Files / Game Files** indicators on app cards
 - Downloads via libcurl (MediaFire CDN/size resolution, **Archive.org edge failover**, GitHub, …) with retry behaviour on slow links and SSL connect errors
 - Install pipeline:
   - **VPK** promote (including a nested `.vpk` inside a release ZIP)
-  - **ZIP** extract (`extract_path` from catalog or quick-path UI), including **large / >2 GB** archives (libzip + custom `sceIo` source); EOCD/ZIP64 incomplete retries with delay
+  - **ZIP** extract (`extract_path` from catalog or quick-path UI), including **large / >2 GB** archives (libzip + custom `sceIo` source); EOCD/ZIP64 incomplete retries with delay
   - Pre-open ZIP integrity check (EOCD / ZIP64 marker) to fail incomplete downloads early
   - Licensed commercial **Vita PKG via system BGDL**
   - **PSP/PS1 PKG**: LiveArea BGDL **or** Adrenaline unpack (pkg2zip-style → `ux0:pspemu`, Folder or ISO from Settings)
@@ -40,9 +41,113 @@ Native catalog client for PlayStation Vita / PSTV (and Vita3K for testing).
 - Brand logo / loading splash can use monochrome assets tinted by the active theme
 - Logs: `session.log`, `install.log`, `updater.log`
 
+## Image cache v3
+
+Images are stored under:
+
+```text
+ux0:data/psvitaalive/cache/images/v3/
+```
+
+The cache is disk-backed and normal browsing remains **on demand**.
+
+### Stable image identity
+
+The catalog parser adds private in-memory metadata that identifies:
+
+```text
+catalog + app/game + image role
+```
+
+Catalog scopes are:
+
+```text
+H   = Homebrew
+PV  = PS Vita
+PSP = PSP
+PS1 = PS1
+```
+
+Roles distinguish `icon`, `cover`, `shot0`, `shot1`, etc. The stable resource identity does not depend on the current URL.
+
+A cached filename includes both the stable resource identity and a hash of the current URL:
+
+```text
+app_H_<resource-key>_<url-hash>.png
+shot_PSP_<resource-key>_<url-hash>.png
+```
+
+Resource files are distributed over **256 bucket directories** by the first byte of the resource-key hash.
+
+### URL changes / image replacement
+
+If an app changes only its image URL, the stable resource key remains the same while the URL hash changes. Therefore the client can distinguish the old and new versions before the new file is downloaded.
+
+The replacement flow is:
+
+```text
+new URL requested
+    ↓
+new path not cached
+    ↓
+download + normalize/validate new image
+    ↓
+success
+    ↓
+delete only older cached siblings
+with the same resource identity
+```
+
+The old version is **not deleted first**. If the new download fails, the cache does not proactively erase the previous resource version.
+
+A changed icon does not purge cover/screenshots; a changed screenshot slot does not purge other slots; one catalog scope cannot purge another.
+
+### Startup disk cap
+
+Global size maintenance runs **only during application startup**, inside `ImageCache::init()`, before the image worker thread is created.
+
+Policy:
+
+```text
+cache <= 200 MiB
+→ scan/measure only; no global eviction
+
+cache > 200 MiB
+→ sort cache payloads oldest → newest
+→ delete complete files until approximately <= 40 MiB remain
+```
+
+This deliberately keeps about 20% of the configured maximum after a cleanup, leaving roughly 160 MiB for future on-demand browsing before another startup trim is required.
+
+The first size pass does not allocate/sort the full file list when the cache is already below the threshold. The expensive list/sort pass is created only when cleanup is actually necessary.
+
+Deletion always uses whole-file `sceIoRemove()`. Byte sizes are used only for accounting; an image is never truncated to hit an exact target. If a deletion fails, its size is not deducted.
+
+### Startup UI
+
+The existing loading overlay displays localized phases such as:
+
+```text
+Checking image cache...
+Cleaning old cached images...
+Image cache ready
+```
+
+Checking progress is based on scanned cache buckets; cleaning progress advances through whole-file cleanup work. The loading screen is redrawn while the synchronous maintenance pass runs.
+
+`LocalizationManager` is initialized before this phase so the messages use the selected/System-resolved language.
+
+### After eviction
+
+Nothing special is required. If a later screen requests an image that survived cleanup, it is reused. If that image was evicted, `isCached()` reports a miss and `request()` downloads it again normally.
+
+There is **no global 200 MiB scan during browsing**. A session can grow past the threshold and will be trimmed on the next application launch.
+
+Full technical design, migration notes, logging and validation checklist: [`../docs/IMAGE_CACHE.md`](../docs/IMAGE_CACHE.md).
+
 ## Job safety during download / install / extract
 
-In-app HTTP downloads and ZIP extraction are **process-bound**. If the Vita suspends or the user exits to LiveArea mid-transfer, partial files are common (especially multi‑GB Game Files). Incomplete ZIPs typically fail later with missing EOCD / `zip_open` errors.
+In-app HTTP downloads and ZIP extraction are **process-bound**. If the Vita suspends or the user exits to LiveArea mid-transfer, partial files are common (especially multi-GB Game Files). Incomplete ZIPs typically fail later with missing EOCD / `zip_open` errors.
 
 ### Runtime behaviour
 
@@ -72,7 +177,6 @@ Toasts fire for START, SELECT (Settings), L/R catalog switch, and other face/D-P
 ### Recommendations (device)
 
 See the root [README — Recommended setup](../README.md#recommended-setup-real-ps-vita) for **iTLS-Enso (full)**, DNS `8.8.8.8` / `8.8.4.4`, plugins, and storage notes.
-
 
 ## Network / TLS (libcurl)
 
@@ -189,16 +293,16 @@ Requires a working VitaSDK toolchain (`arm-vita-eabi-gcc`, etc.). The build also
 
 | Path | Role |
 |------|------|
-| `source/main.cpp` | Entry, lifecycle, update handoff |
-| `source/catalog/` | Catalog download/parse/cache + zRIF index download |
+| `source/main.cpp` | Entry, lifecycle, early localization, cache-maintenance progress, update handoff |
+| `source/catalog/` | Catalog download/parse/cache + zRIF index download + internal image-cache identity tagging |
 | `source/network/` | HTTP, downloads, MediaFire |
 | `source/installer/` | Install/dispatch/promote, BGDL PKG, plugins, keep-awake / shell locks |
 | `source/archive/` | ZIP / format detection |
-| `source/ui/` | Full catalog UI, image cache, lock messaging, themes |
+| `source/ui/` | Full catalog UI, image cache v3, startup cache trim, lock messaging, themes |
 | `source/update/` | GitHub release check, applyUpdate, launch helper |
 | `source/storage/` | Paths and storage helpers |
 | `updater/` | Standalone PSVAUPDT1 sources |
-| `assets/` | LiveArea, UI images |
+| `assets/` | LiveArea, UI images, language packs |
 
 See module READMEs under `source/*/`.
 
@@ -206,20 +310,22 @@ See module READMEs under `source/*/`.
 
 ```text
 ux0:data/psvitaalive/
-  logs/           session.log, install.log, updater.log
-  cache/catalog/  catalog JSON + catalog_psvita_games.zrifidx
-  cache/images/   icon/screenshot cache
-  downloads/      job work dirs
-  update/         staged self-update VPK
+  logs/             session.log, install.log, updater.log
+  cache/catalog/    catalog JSON + catalog_psvita_games.zrifidx
+  cache/images/v3/  bucketed icon/cover/screenshot cache
+  downloads/        job work dirs
+  update/           staged self-update VPK
 ux0:data/psva_vpk/   shallow promote path (homebrew + self-update)
 ```
+
+The image cache is allowed to grow during a session. Its global disk-size policy is enforced only on the next application startup; see [`../docs/IMAGE_CACHE.md`](../docs/IMAGE_CACHE.md).
 
 ## Scope notes
 
 - Licensed PKG install uses system BGDL + zRIF/RIF helpers; it does not invent DRM bypasses beyond NoPayStation-style license data the user already needs for NPS content.
 - LiveArea registration relies on promoter utilities; hardware and Vita3K may differ.
+- Image-cache URL-change invalidation assumes catalog maintainers change the URL when the actual image content changes. Same-URL byte replacement is not automatically revalidated.
 - Prefer reading current code when docs and behaviour diverge.
-
 
 ## Plugin links
 
@@ -286,7 +392,7 @@ Many named palettes (brand **PsVitaAlive** / Neon Lime, **PS Vita**, OLED, Matri
 | First run | Full-screen theme grid **before** News (once; `theme_setup_done` in config) |
 | Settings | **Color theme** opens the **same** picker (not a D-pad only cycle) |
 | Preview | First **X** / tap applies a **live preview**; second press on the same theme **or** **Save** commits |
-| Transition | ~420 ms **cross-fade** of BG, surfaces, borders, text and accent (smoothstep). Startup load is instant |
+| Transition | ~420 ms **cross-fade** of BG, surfaces, borders, text and accent (smoothstep). Startup load is instant |
 | Brand art | Full-colour logo / catalog splash only on the original theme; other themes use **monochrome** assets tinted with the accent |
 
 Persisted as `color_theme` in `ux0:data/psvitaalive/config.json`.
@@ -311,13 +417,16 @@ Settings → **UI font** (Left/Right):
 
 | Item | Detail |
 |------|--------|
-| Files | `assets/lang/en.lang`, `es.lang` → `app0:lang/` in the VPK |
-| Settings | **Language**: System (Vita locale) / English / Español |
-| Config | `language_mode` (`system`\|`manual`), `language` (`en`\|`es`) |
-| Scope | Chrome only (buttons, Settings INFO, overlays, toasts, theme modal). **Catalog JSON text is not translated** |
-| Fallback | Missing key → English string |
+| Packaged files | `en.lang`, `es.lang`, `fr.lang`, `de.lang`, `it.lang`, `pt-PT.lang`, `pt-BR.lang`, `ru.lang` → `app0:lang/` in the VPK |
+| Settings | **Language**: System / Automatic or manual selection from installed packs |
+| Config | `language_mode` (`system`\|`manual`), `language` (stable code such as `en`, `es`, `fr`, ...) |
+| Scope | Chrome only (buttons, Settings INFO, overlays, toasts, theme/startup UI). **Catalog JSON text is not translated** |
+| Fallback | Missing key → English; unavailable pack → English |
+| Startup cache UI | Cache-check/cleanup strings are localized for every currently packaged language before normal catalog loading |
 
-Design and phases: [docs/MULTILANGUAGE.md](../docs/MULTILANGUAGE.md).
+The internal registry contains more Vita languages than are currently packaged. Availability is determined by the presence of the matching `.lang` asset.
+
+Design/current implementation: [`../docs/MULTILANGUAGE.md`](../docs/MULTILANGUAGE.md).
 
 ## PSP DLC (Adrenaline ISO)
 
@@ -327,7 +436,9 @@ PSP **DLC** link buttons require **LiveArea** install target **or** Adrenaline *
 
 | Doc | Topic |
 |-----|--------|
-| [source/ui/README.md](source/ui/README.md) | Themes, fonts, LOCKED UI, modals |
+| [`../docs/IMAGE_CACHE.md`](../docs/IMAGE_CACHE.md) | Image cache v3, per-image replacement, startup disk cap/progress |
+| [source/ui/README.md](source/ui/README.md) | Themes, fonts, image cache integration, LOCKED UI, modals |
+| [source/catalog/README.md](source/catalog/README.md) | Catalog parser/cache, image identity handoff, zRIF sidecar |
 | [source/installer/README.md](source/installer/README.md) | Install paths, plugins, shell locks |
 | [docs/NETWORK_TLS.md](../docs/NETWORK_TLS.md) | libcurl / archive.org failover |
 | [docs/MULTILANGUAGE.md](../docs/MULTILANGUAGE.md) | Localization architecture |

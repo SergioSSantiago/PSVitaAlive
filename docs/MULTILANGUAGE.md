@@ -1,34 +1,73 @@
 # PSVitaAlive — Multi-language support
 
-> **Status:** Phases 1–4 complete. Phase 5 largely done for Settings, catalog/nav, detail, download/install overlays, theme picker, and many dialogs/toasts (EN + ES). Residual chrome may still appear in English until remaining strings are keyed.  
-> **Scope:** Native PS Vita client UI strings only. Catalog / external data is **not** translated.  
-> **Branch policy:** Changes for this feature go directly to `main`; do not create feature branches for the implementation.
+> **Status:** localization core is implemented and used throughout the native client. Eight language packs are currently bundled with the VPK. Some older/residual UI strings may still fall back to English until they are migrated to localization keys.
+> **Scope:** native PS Vita client UI strings only. Catalog / external data is **not** translated.
 
-## Goal
+## Current packaged languages
 
-The client must support multiple interface languages without coupling the UI to individual translations.
+The VPK currently ships these files under `app0:lang/`:
 
-Required behaviour:
+| Code | Language |
+|---|---|
+| `en` | English |
+| `es` | Español |
+| `fr` | Français |
+| `de` | Deutsch |
+| `it` | Italiano |
+| `pt-PT` | Português (Portugal) |
+| `pt-BR` | Português (Brasil) |
+| `ru` | Русский |
 
-1. Detect the system language from the PS Vita / PSTV settings.
-2. If that language is supported, use it automatically.
-3. If it is not supported, use **English**.
-4. Allow the user to override the automatic language from **Settings**.
-5. Provide a **System / Automatic** option that returns control to the console language.
-6. Persist the user's language mode/selection in the existing client configuration.
-7. Never load every language into RAM at once.
-8. Make adding a new language mostly a matter of adding a translation file and registering its system-language mapping.
-9. Missing individual translations must fall back to English instead of showing an empty string.
-10. Catalog data remains untouched and is never translated by this system.
+The internal `Language` registry also defines Dutch, Korean, Traditional Chinese, Simplified Chinese, Finnish, Swedish, Danish, Norwegian, Polish and Turkish so system-language mapping can remain stable and future packs can be added without redesigning the client.
 
-## Approved language-selection model
+A language is considered available to the UI only when its `.lang` file can actually be loaded. Merely existing in the enum does not make it selectable.
 
-The language preference has two modes:
+## Required behaviour
 
-- **System / Automatic** — detect the Vita language at startup and use it when supported; otherwise use English.
-- **Manual** — explicitly select one of the languages bundled with the client.
+1. Detect the system language from PS Vita / PSTV settings.
+2. If a matching installed translation pack exists, use it automatically.
+3. If it is unavailable, fall back to **English**.
+4. Allow a manual language override in Settings.
+5. Provide **System / Automatic** to return control to the console language.
+6. Persist mode/selection in the existing `config.json`.
+7. Do not load every language table into RAM simultaneously.
+8. Missing individual keys fall back to English.
+9. A missing/malformed optional language pack must not prevent startup.
+10. Catalog metadata remains untouched.
 
-Conceptually the persisted configuration is:
+## Architecture
+
+```text
+PS Vita system language
+        ↓
+languageFromSystemValue()
+        ↓
+Language enum
+        ↓
+System or Manual selection
+        ↓
+LocalizationManager
+        ↓
+active table + English fallback table
+        ↓
+TextId / string key → UI text
+```
+
+Primary files:
+
+```text
+Client PSVitaAlive/include/localization/language.hpp
+Client PSVitaAlive/source/localization/language.cpp
+Client PSVitaAlive/include/localization/localization.hpp
+Client PSVitaAlive/source/localization/localization.cpp
+Client PSVitaAlive/assets/lang/*.lang
+```
+
+## System / Automatic and Manual modes
+
+Settings persist language preference in the existing client configuration.
+
+Conceptually:
 
 ```json
 {
@@ -45,108 +84,56 @@ or:
 }
 ```
 
-The exact JSON representation may be adjusted during implementation if it remains backward-compatible with existing `config.json` files.
-
-### Selection priority
+Selection priority:
 
 ```text
-Manual selection
-      ↓
-explicit supported language
+Manual
+  ↓
+requested code exists and pack is loadable?
+  ├─ yes → requested language
+  └─ no  → recover through System/English behaviour
 
 System / Automatic
-      ↓
-detect Vita system language
-      ↓
-Is it supported?
-   /          \
- yes           no
-  ↓             ↓
-that language  English
+  ↓
+read SCE_SYSTEM_PARAM_ID_LANG
+  ↓
+map to internal Language
+  ↓
+translation pack available?
+  ├─ yes → mapped language
+  └─ no  → English
 ```
 
-Changing the language in Settings should take effect without requiring a catalog refresh. If the current UI architecture makes an immediate full redraw unsafe, the implementation may apply the change on the next screen transition or application restart, but this must be documented and validated before release.
+The system-language mapping is centralized in `language.cpp`; UI screens should not depend on Sony numeric language constants directly.
 
-## Recommended architecture
+## Runtime loading and RAM
+
+`LocalizationManager` loads:
+
+- the English table as the fallback;
+- one active table for the selected language.
+
+It does **not** keep all language packs resident in memory.
+
+`availableLanguages()` probes packs using the same loader, so Settings can expose only languages that are actually present in the VPK.
+
+Adding more language packs increases VPK asset size, but normal runtime localization memory does not grow linearly with every installed language table.
+
+## Translation file format
+
+Files live in:
 
 ```text
-PS Vita system language
-        ↓
-LanguageDetector
-        ↓
-internal Language enum / stable language ID
-        ↓
-Language selection policy
-(System or Manual)
-        ↓
-LocalizationManager
-        ↓
-current language table + English fallback
-        ↓
-UI uses TextId → localized string
+Client PSVitaAlive/assets/lang/
 ```
 
-The UI must not contain language-specific conditionals such as:
-
-```cpp
-if (language == "es") ...
-else if (language == "fr") ...
-```
-
-Instead, UI code should request stable translation identifiers:
-
-```cpp
-drawText(L(TextId::Search));
-drawText(L(TextId::Settings));
-drawText(L(TextId::Download));
-```
-
-The localization layer owns the mapping from `TextId` to translated text.
-
-## System-language detection
-
-The current client already uses VitaSDK's system parameter API to obtain the Vita language for Common Dialog configuration:
-
-```cpp
-sceAppUtilSystemParamGetInt(SCE_SYSTEM_PARAM_ID_LANG, ...);
-```
-
-Therefore the localization implementation should reuse the same Vita system-language source rather than introducing a second platform-specific detection mechanism.
-
-The detector should convert the Vita numeric/system value into an internal stable language identifier. The rest of the client must not depend directly on Sony/VitaSDK numeric language constants.
-
-Example conceptual mapping:
+and are packaged to:
 
 ```text
-SCE system language value
-        ↓
-LanguageDetector
-        ↓
-Language::English
-Language::Spanish
-Language::French
-Language::German
-...
+app0:lang/
 ```
 
-Unsupported system languages resolve to `Language::English`.
-
-The exact list and numeric mappings must be verified against the VitaSDK headers/runtime before implementation; do not guess or hardcode unverified values.
-
-## Translation files
-
-Preferred runtime asset layout:
-
-```text
-assets/lang/
-├── en.lang
-├── es.lang
-├── fr.lang
-├── de.lang
-└── ...
-```
-
-The `.lang` files are UTF-8 and use simple `key=value` entries.
+Format is UTF-8 `KEY=value`.
 
 Example:
 
@@ -166,344 +153,228 @@ DOWNLOAD=Descargar
 CANCEL=Cancelar
 ```
 
-The exact parser rules must be defined before implementation, including handling of:
+Current parser behaviour:
 
-- UTF-8 text;
-- blank lines;
-- comments;
-- `=` inside translated values;
-- duplicate keys;
-- malformed lines;
-- trailing whitespace;
-- newline conventions.
+- blank lines are ignored;
+- lines beginning with `#` are comments;
+- the first `=` separates key/value;
+- leading/trailing spaces, tabs and CR are trimmed;
+- duplicate keys resolve to the last parsed value;
+- malformed lines without a valid key/value separator are skipped.
 
-A malformed translation file must never prevent the client from starting. English remains the final fallback.
+## Fallback behaviour
 
-## RAM and loading
-
-- Keep **one active language table** in memory for the session.
-- Do **not** load all language files simultaneously.
-- Parse the selected `.lang` file once and release its temporary file buffer.
-- English may be kept as the fallback table if required by the implementation; memory usage must be measured on Vita/Vita3K before deciding whether to keep both tables resident.
-- Adding more languages should primarily increase VPK/assets size, not active runtime memory proportional to the total number of languages.
-
-## English fallback
-
-English is the mandatory base language and must always be complete.
-
-Fallback happens at two levels:
-
-### Language fallback
+### Unsupported or unavailable language
 
 ```text
-Vita language = Japanese
-Japanese translation unavailable
+Vita system language maps to Korean
+        ↓
+ko.lang not packaged
         ↓
 English
 ```
 
-### Per-key fallback
+### Missing key in an installed pack
 
 ```text
-Spanish selected
+Spanish active
         ↓
-Does Spanish contain TextId::Download?
-      /       \
-    yes        no
-     ↓          ↓
- Spanish     English
+key present in es.lang?
+  ├─ yes → Spanish value
+  └─ no  → en.lang value
 ```
 
-No missing translation should result in an empty UI label.
+If English itself is missing a key, `LocalizationManager::get()` returns the key name rather than an empty pointer/string. This keeps failures visible during development.
 
-For supportability, logs and diagnostic messages may remain in English and do not need to be localized unless explicitly decided later.
+## Startup ordering
 
-## Settings integration
+Localization must be available before any startup task that displays user-facing text.
 
-The existing client already persists settings in:
+Current order in `main.cpp` is intentionally:
 
 ```text
-ux0:data/psvitaalive/config.json
+Storage / installer settings
+        ↓
+LocalizationManager::initialize(settings)
+        ↓
+FullCatalogScreen initialization / startup UI
+        ↓
+startup update phase
+        ↓
+CatalogManager init
+        ↓
+ImageCache startup maintenance
+        ↓
+normal catalog loading
 ```
 
-and `AppSettingsData` currently contains install, PSP/PS1, media, theme and other preferences. Language selection should be added to this existing settings mechanism rather than creating another configuration file.
+This ordering was moved earlier specifically so image-cache maintenance can show translated progress before the normal catalog begins loading.
 
-The Settings UI should expose:
+## Image-cache startup strings
+
+The image-cache v3 maintenance phase uses these private keys:
 
 ```text
-Language
-────────────────────
-System / Automatic
+IMAGE_CACHE_LABEL
+IMAGE_CACHE_CHECKING
+IMAGE_CACHE_CLEANING
+IMAGE_CACHE_READY
+```
+
+They are shown while the cache is checked and, when over the disk threshold, while old complete image files are removed.
+
+All **currently packaged languages** have a compatibility translation for these four strings in the localization layer:
+
+```text
 English
 Español
 Français
-...
+Deutsch
+Italiano
+Português (Portugal)
+Português (Brasil)
+Русский
 ```
 
-When System / Automatic is selected, the UI may display the resolved language for clarity, for example:
+### Why these strings currently have a code fallback
+
+The feature was added after the existing `.lang` packs. To avoid shipping startup text in English for non-English users, `L(const char* key)` first asks the normal active/English tables and then uses `startupImageCacheTextFallback()` only when the key was not found.
+
+Priority is therefore:
 
 ```text
-Language       System (Español)
+active .lang value
+        ↓ if missing
+English .lang value
+        ↓ if missing
+startup image-cache compatibility fallback
+        ↓ otherwise
+raw key
 ```
 
-When Manual is selected:
+This is intentionally compatible with the normal data-driven model: if the same `IMAGE_CACHE_*` key is later added directly to a `.lang` file, that file automatically wins and no cache code change is required.
 
-```text
-Language       Español
-```
-
-The language names shown in the selector should preferably be the languages' own names (`English`, `Español`, `Français`, etc.) rather than translating those names through the current UI language.
+See [`IMAGE_CACHE.md`](IMAGE_CACHE.md) for the complete cache behaviour.
 
 ## What is translated
 
-Only **client interface/chrome** is localized, including where applicable:
+Client-generated visible text should use localization where practical, including:
 
 - navigation labels;
-- Settings labels and descriptions;
-- search UI;
-- category/filter UI labels;
-- buttons and actions;
-- download/install progress messages;
-- dialogs and confirmation prompts;
-- error messages shown to the user;
-- update/restart messages;
+- Settings labels/descriptions;
+- search/filter UI;
+- buttons/actions;
+- loading/startup states;
+- download/install progress;
+- confirmation/error dialogs;
+- update/restart UI;
 - plugin prompts;
-- favorites/status labels;
-- empty/loading states;
-- other visible client-generated UI text.
+- status labels;
+- theme UI;
+- image-cache startup maintenance.
 
-## What is NOT translated
+Diagnostic logs do not need to be translated.
 
-Catalog fields from GitHub remain exactly as stored:
+## What is not translated
 
-- application `name`;
-- `description`;
-- `long_description` when present;
+Catalog/external data stays exactly as authored:
+
+- application/game names;
+- descriptions / long descriptions;
 - author names;
-- category/subcategory names from catalog data;
+- catalog category/subcategory text;
 - changelogs;
 - requirements;
-- link names/types supplied by catalog data;
-- external source information.
+- catalog-provided link labels/types;
+- external-source metadata.
 
-The localization system must not modify `apps/`, `authors/`, `categories/`, generated catalogs, import data, or the website.
-
-## Dynamic strings
-
-Dynamic UI messages must use translation templates rather than concatenating localized fragments manually.
-
-Avoid:
-
-```cpp
-text = tr("Downloaded") + " " + size + " " + tr("MB");
-```
-
-Prefer a stable message key/template capable of receiving values, for example conceptually:
+Localization must not rewrite:
 
 ```text
-DOWNLOAD_PROGRESS=Downloaded {current} of {total}
+apps/
+authors/
+categories/
+catalog.json
+authors.json
+categories.json
+commercial catalogs
+external source files
 ```
 
-The final formatting API should be selected after auditing the existing text-rendering helpers and Vita memory constraints.
-
-## Text ID rules
-
-Translation keys/IDs must be:
-
-- stable;
-- descriptive;
-- independent of the displayed English wording;
-- unique;
-- reused wherever the same UI concept is displayed.
-
-Prefer:
-
-```text
-settings.language
-settings.color_theme
-common.cancel
-download.start
-download.cancelled
-install.failed
-catalog.loading
-```
-
-over keys based directly on English text:
-
-```text
-"Cancel"
-"Download"
-"Settings"
-```
-
-This allows English wording to change without invalidating the identifier used by other translations.
-
-## Font / Unicode
-
-The first implementation should target Latin-script languages, including Spanish accents.
-
-Before adding Cyrillic, Greek, Arabic, CJK or other scripts, perform a dedicated font/glyph/RAM audit for the actual Vita rendering path (`vita2d` / PGF resources).
-
-A language must not be advertised as supported until its characters render correctly on both real Vita hardware and Vita3K where practical.
+The official catalog architecture is unchanged.
 
 ## Adding a new language
 
-The intended workflow for a contributor should be approximately:
-
 1. Copy `assets/lang/en.lang`.
-2. Translate every required key.
-3. Give the file the agreed language code/name.
-4. Register the language in the localization language registry.
-5. Register its Vita system-language mapping if the Vita supports that language.
-6. Build and test the client.
-7. Test manual selection.
-8. Test System / Automatic detection when possible.
-9. Test missing-key fallback to English.
-10. Validate text fitting at 960×544.
+2. Translate required keys.
+3. Save it using the stable language code (`nl.lang`, `ko.lang`, etc.).
+4. Confirm the language already exists in `Language` / `languageCode()` or add it there if truly new.
+5. Confirm the Vita system-language mapping when applicable.
+6. Ensure the required glyphs render with the selected UI font path.
+7. Build the VPK and verify the file is packaged under `app0:lang/`.
+8. Test **System / Automatic** when possible.
+9. Test manual selection and persistence.
+10. Test missing-key fallback.
+11. Test startup flows, including image-cache maintenance text.
+12. Validate text fitting at 960×544 on Vita3K and, where possible, real hardware.
 
-Adding a language must **not** require editing every UI screen.
+Adding a language should not require editing every UI screen.
 
-## Current client integration points
+## Font / glyph note
 
-The current client already has a centralized settings model:
+The language registry includes non-Latin scripts, but a pack should not be shipped merely because its enum value exists. Font/glyph coverage must be validated for the actual runtime font configuration.
 
-```text
-Client PSVitaAlive/include/installer/app_settings.hpp
-Client PSVitaAlive/source/installer/app_settings.cpp
+This is especially important for:
+
+- Korean;
+- Chinese Traditional / Simplified;
+- other scripts outside the Latin/Cyrillic coverage of the selected font.
+
+## Dynamic strings
+
+Prefer complete localized templates over concatenating translated fragments in an English word order.
+
+Avoid conceptually:
+
+```cpp
+text = L("DOWNLOADED") + size + L("OF") + total;
 ```
 
-and persists the settings to:
+Prefer a single stable message/template whenever the formatting layer supports it.
 
-```text
-ux0:data/psvitaalive/config.json
-```
+## Text-key rules
 
-The current UI settings are implemented in the catalog UI and already expose install method, PSP/PS1 target, PSP media, color theme and related options. The localization setting should integrate into this existing Settings flow rather than creating a parallel settings screen.
+Keys should be:
 
-The client also already reads `SCE_SYSTEM_PARAM_ID_LANG` in `main.cpp` for Common Dialog initialization. The localization detector should reuse that platform API/source.
+- stable;
+- descriptive;
+- independent from exact English wording;
+- reused for the same UI concept;
+- added to English first so the fallback remains complete.
 
-## Compatibility and migration
+`TextId` should be preferred for established static UI concepts. String keys are acceptable for narrow compatibility/startup surfaces where adding a broad enum dependency is unnecessary, but they must still follow the same fallback rules.
 
-Existing users must not lose settings when the language fields are introduced.
+## Validation checklist
 
-If an old `config.json` has no language fields:
+Before releasing localization changes, verify:
 
-```text
-missing language configuration
-        ↓
-System / Automatic
-        ↓
-detect Vita language
-        ↓
-supported → that language
-unsupported → English
-```
-
-Existing theme, installer, PSP/PS1, plugin and update settings must remain unchanged.
-
-If a language file is removed from a future build while a user had manually selected it, the client must safely fall back to English and recover to a valid persisted setting.
-
-## Suggested rollout
-
-### Phase 1 — Audit
-
-- Inventory all visible hardcoded UI strings.
-- Inventory existing text-rendering helpers.
-- Verify VitaSDK language constants and runtime values.
-- Audit current font/PGF glyph coverage for English + Spanish.
-- Identify dynamic strings that require formatting.
-
-### Phase 2 — Localization core
-
-- Add `Language` identifiers.
-- Add `LanguageDetector`.
-- Add `LocalizationManager`.
-- Add English translation file.
-- Add system/manual selection policy.
-- Add config persistence.
-- No broad UI migration yet.
-
-### Phase 3 — Controlled UI test ✅
-
-Migrate a small, low-risk portion of Settings first:
-
-- Language (System / Automatic + manual cycle of available languages);
-- Color theme;
-- existing Settings labels/options (via `TextId` + `L()`).
-
-**Implemented:** Settings screen strings load from `app0:lang/*.lang`. Changing Language applies immediately and persists with Save. Validate on Vita3K and real hardware before Phase 5 broad migration.
-
-### Phase 4 — Spanish ✅
-
-- `es.lang` ships with the VPK (`app0:lang/es.lang`).
-- Automatic detection uses Vita system language when Spanish is selected.
-- Manual override cycles System / English / Español in Settings.
-- Missing keys fall back to English; persistence via `language_mode` / `language`.
-
-### Phase 5 — Progressive UI migration (mostly complete)
-
-```text
-Settings ✅ (labels + INFO panel bodies + SYSTEM status)
-↓
-Catalog/navigation ✅ (tabs, footers, search, filter/loading toasts)
-↓
-App detail ✅ (Install All, badges, meta, section headers, install state)
-↓
-Download/install ✅ (progress overlay, LOCKED banner, outcomes, Install All wizard, mirror picker, completion toasts)
-↓
-Theme picker ✅ (title, body, Save, nav hint, preview/saved toasts)
-↓
-Dialogs / plugins / News / update strings — continue as residual English is found
-```
-
-When adding UI text, always add `TextId` + `en.lang` + `es.lang` in the same change.
-
-### Phase 6 — Additional languages
-
-Only after the base system is stable, add more Latin languages and later perform separate font work for non-Latin scripts.
-
-## Validation requirements
-
-Before considering the feature complete, verify:
-
-- fresh install with English Vita;
-- fresh install with Spanish Vita;
-- unsupported Vita language → English;
-- System / Automatic mode;
-- manual English;
-- manual Spanish;
-- switching back to System;
+- fresh startup with English;
+- startup with each packaged language where practical;
+- System / Automatic mapping;
+- unavailable system language → English;
+- manual language selection;
 - persistence after restart;
-- missing translation key → English;
-- malformed translation file → English/client still starts;
-- old `config.json` → no settings lost;
-- all existing settings still work;
+- missing key → English;
+- missing optional pack → English;
+- malformed line does not crash parser;
 - catalog content remains unchanged;
+- startup self-update text still renders;
+- image-cache checking/cleaning/ready text is localized;
 - downloads/install/update/plugin flows remain unchanged;
-- no measurable regression in startup/RAM that is unacceptable for Vita;
-- text fits correctly at 960×544.
+- no unacceptable startup/RAM regression;
+- text fits the 960×544 UI.
 
-## Decision
-
-The previous proposal of external `.lang` files remains approved, but the design is now expanded with **automatic system-language detection plus a persistent manual override**.
-
-The authoritative model for implementation is:
-
-```text
-assets/lang/*.lang
-        ↓
-Language registry
-        ↓
-System detector + manual override
-        ↓
-LocalizationManager
-        ↓
-TextId + English fallback
-        ↓
-PS Vita client UI
-```
-
-The client remains the only affected component. The official catalog architecture is unchanged:
+## Catalog architecture remains unchanged
 
 ```text
 apps/ + authors/ + categories/
@@ -515,4 +386,4 @@ catalog.json + authors.json + categories.json
 Web + Client
 ```
 
-Do not modify generated catalogs or external source data to implement localization.
+Localization is a client-only presentation layer and must never be implemented by modifying generated catalogs.

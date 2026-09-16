@@ -26,7 +26,7 @@ PS Vita Alive Store helps users discover, download and install content on PlaySt
 | `web/` | Static website (GitHub Pages) |
 | `Client PSVitaAlive/` | Native PS Vita client (VPK) |
 | `sources/`, `catalog_overrides/` | External source config and manual enrichment |
-| `docs/` | Extra documentation |
+| `docs/` | Extra documentation, including native-client image cache and localization design |
 
 ```text
 apps/*.json  (+ optional external sources if enabled)
@@ -142,10 +142,11 @@ Native client (Title ID **PSVAS1178**). Users only need to **open the client**: 
 **Highlights**
 
 - Catalogs: Homebrew, Vita Games, PSP, PS1
-- Search, Settings (**PSP/PS1 target**, **PSP media** Folder/ISO, **color theme** + first-run picker with preview/confirm and **smooth palette cross-fade**, **UI font** styles, **language** System/EN/ES), touch + controls; News modal (from `news.txt`); optional Discord error **Report**
-- **Multilanguage UI** (English / Spanish chrome; catalog text unchanged) — see [docs/MULTILANGUAGE.md](docs/MULTILANGUAGE.md)
+- Search, Settings (**PSP/PS1 target**, **PSP media** Folder/ISO, **color theme** + first-run picker with preview/confirm and **smooth palette cross-fade**, **UI font** styles, **language** System/manual), touch + controls; News modal (from `news.txt`); optional Discord error **Report**
+- **Multilanguage UI**: currently packaged `en`, `es`, `fr`, `de`, `it`, `pt-PT`, `pt-BR`, `ru`; unavailable/missing keys fall back to English; catalog text stays unchanged — see [docs/MULTILANGUAGE.md](docs/MULTILANGUAGE.md)
+- **Image cache v3**: images download on demand; changing an image URL replaces only that resource; startup checks disk use and, only when cache is over **200 MiB**, removes oldest complete files down to about **40 MiB** with localized progress — see [docs/IMAGE_CACHE.md](docs/IMAGE_CACHE.md)
 - Downloads (MediaFire CDN resolution, Archive.org edge failover, GitHub, …) with retries on slow networks and SSL connect errors
-- Install: **VPK** (including nested `.vpk` inside a release ZIP), **ZIP** extract (`extract_path` or quick paths; large / >2 GB archives; EOCD/ZIP64 retries), licensed **Vita PKG** via system **BGDL**, **PSP/PS1 PKG** via BGDL (LiveArea) or **Adrenaline unpack** (Folder/ISO via pkg2zip-style pipeline)
+- Install: **VPK** (including nested `.vpk` inside a release ZIP), **ZIP** extract (`extract_path` or quick paths; large / >2 GB archives; EOCD/ZIP64 retries), licensed **Vita PKG** via system **BGDL**, **PSP/PS1 PKG** via BGDL (LiveArea) or **Adrenaline unpack** (Folder/ISO via pkg2zip-style pipeline)
 - **Plugin** catalog links: download to `extract_path`, append line to taiHEN `config.txt` (section-aware, append-only), reboot prompt
 - **Essential plugins** prompt after theme + News: detects missing **kubridge**, **fd_fix** (file + config line) and **libshacccg** (file only); one-tap install + reboot
 - **Plugin updates (planned):** remote manifest + size/hash checks — see [docs/PLUGIN_UPDATES.md](docs/PLUGIN_UPDATES.md) (not implemented yet)
@@ -155,6 +156,33 @@ Native client (Title ID **PSVAS1178**). Users only need to **open the client**: 
 - Self-update from [Releases](https://github.com/VegettoSan/PSVitaAlive/releases) (see below)
 - Plugin detection (prefer `ur0:tai`); Settings INFO shows NoNpDrm / NoPspEmuDrm / kubridge / fd_fix / libshacccg status
 - Session logs under `ux0:data/psvitaalive/logs/`
+
+#### Image cache lifecycle
+
+The client does not preload every catalog image into RAM. Media files are cached on disk in `ux0:data/psvitaalive/cache/images/v3/` and requested as needed.
+
+Each image resource receives a stable identity based on catalog + item + role (`icon`, `cover`, `shot0`, ...), while the current remote URL contributes a separate hash. This means a catalog update can identify an old and new version of the same icon/screenshot even before the new file is downloaded.
+
+Replacement is intentionally **per image**:
+
+```text
+new URL requested
+→ download/validate new image
+→ on success, remove older files for that same resource only
+```
+
+A failed new download does not trigger deletion of the old resource first.
+
+Global disk maintenance is separate and happens only during startup:
+
+```text
+<= 200 MiB → keep cache
+> 200 MiB  → delete oldest whole image files until ~40 MiB remain
+```
+
+The startup loading overlay shows localized checking/cleaning progress. During normal navigation there is no global size scan or eviction loop. An image removed by startup maintenance simply downloads again the next time it is requested.
+
+Detailed design: [`docs/IMAGE_CACHE.md`](docs/IMAGE_CACHE.md).
 
 #### Automatic client updates
 
@@ -200,23 +228,24 @@ iTLS-Enso repository and releases:
 
 Install the **full** build when possible, reboot, then test HTTPS (open the client and load a catalog).
 
-### DNS (Wi‑Fi)
+### DNS (Wi-Fi)
 
-Use reliable public DNS on the Vita’s Wi‑Fi connection so hostnames used by the client resolve consistently:
+Use reliable public DNS on the Vita’s Wi-Fi connection so hostnames used by the client resolve consistently:
 
 | Role | Address |
 |------|---------|
 | **Primary** | `8.8.8.8` |
 | **Secondary** | `8.8.4.4` |
 
-Path on the system UI (typical): **Settings → Network → Wi‑Fi → [your network] → Advanced settings → DNS** → set primary/secondary as above (disable “Automatic” DNS if present).
+Path on the system UI (typical): **Settings → Network → Wi-Fi → [your network] → Advanced settings → DNS** → set primary/secondary as above (disable “Automatic” DNS if present).
 
-These are [Google Public DNS](https://developers.google.com/speed/public-dns). Other stable resolvers (e.g. `1.1.1.1` / `1.0.0.1`) are acceptable; the important part is **not** leaving a broken ISP DNS that fails intermittent lookups during multi‑GB transfers.
+These are [Google Public DNS](https://developers.google.com/speed/public-dns). Other stable resolvers (e.g. `1.1.1.1` / `1.0.0.1`) are acceptable; the important part is **not** leaving a broken ISP DNS that fails intermittent lookups during multi-GB transfers.
 
 ### Storage and power
 
 - Prefer a healthy **SD2Vita / USB** setup with enough free space. The client checks free space at about **~2.1×** the expected download size before starting large jobs.
-- Keep the Vita **plugged in** for multi‑GB **Game Files** / VPK installs when possible.
+- The client image cache is bounded at startup: it is left alone at or below **200 MiB**, and if larger it is trimmed to roughly **40 MiB** by deleting oldest complete cached images. This does not affect installed apps or downloaded install payloads.
+- Keep the Vita **plugged in** for multi-GB **Game Files** / VPK installs when possible.
 - Do **not** force power-off (hold power 10–30s) during an active download or extract — that truncates files and produces incomplete ZIPs.
 
 ---
@@ -230,7 +259,7 @@ Technical overview of how the native client moves bytes and installs content. De
 | Content | Mechanism | Notes |
 |---------|-----------|--------|
 | Homebrew **VPK** (or ZIP containing a `.vpk`) | HTTP download → extract if needed → `scePromoterUtility` (async promote + poll) | Work dir `ux0:data/psva_vpk` |
-| **Data Files / Game Files** (ZIP) | HTTP download → integrity pre-check → extract | `extract_path` from catalog or quick-path picker; large archives supported (including **>2 GB** via libzip + custom `sceIo` source) |
+| **Data Files / Game Files** (ZIP) | HTTP download → integrity pre-check → extract | `extract_path` from catalog or quick-path picker; large archives supported (including **>2 GB** via libzip + custom `sceIo` source) |
 | Commercial **PKG** (Vita / PSP / PS1) | License resolve → **BGDL** system queue | Progress in LiveArea notifications; not a silent “promote raw PKG” path |
 
 ### Why the client locks the shell and keeps the screen on
@@ -275,11 +304,10 @@ PSP **DLC** installs from the client require **LiveArea** target **or** Adrenali
 
 1. Start the download and **leave the client in the foreground** until it finishes or you cancel with CIRCLE.
 2. Do not rely on turning the screen off to “save battery” during Game Files — the client keeps the screen on on purpose.
-3. Prefer a stable Wi‑Fi link and the DNS settings above; flaky DNS is a common cause of stalled HTTPS.
+3. Prefer a stable Wi-Fi link and the DNS settings above; flaky DNS is a common cause of stalled HTTPS.
 4. Ensure **iTLS-Enso (full)** is installed if catalogs or CDNs fail TLS handshake.
 5. After a failure mentioning incomplete ZIP / `zip_open`, **delete the partial file** (cancel already tries to clean the job) and retry on a better connection.
 6. For commercial PKG, after “Queued…”, finish the install from **LiveArea notifications** — that path is system BGDL and can continue differently from in-app HTTP ZIP downloads.
-
 
 ## Contributing data
 
@@ -349,7 +377,6 @@ Full text: [CATALOG_LICENSE.md](CATALOG_LICENSE.md).
 
 Public databases and community work (including projects associated with VitaDB, VitaHomebrewDB, and many individual authors) have helped with discovery and enrichment over time. Credit for that work stays with those projects and authors. This store’s goal is to facilitate finding and installing content, not to replace or claim the creators’ work.
 
-
 ## Client networking notes (v01.18+)
 
 - Downloads use libcurl **8.x** on VitaSDK; stock OpenSSL is **1.0.2**-class. Peer verify is off by design on device (CA store limitations).
@@ -389,4 +416,3 @@ If any are missing, a modal offers **Install plugins** or **Remind me later**. I
 | **NoNpDrm** + **NoPspEmuDrm** | Licensed Vita PKG and PSP LiveArea bubbles |
 | **kubridge** + **fd_fix** + **libshacccg** | Many ports / advanced homebrew |
 | Prefer **ur0:tai** for plugins | Survives memory card swaps better than ux0-only setups |
-
