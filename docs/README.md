@@ -14,6 +14,7 @@ Supplementary documentation for architecture, pipelines and client behaviour.
 | Location | Topic |
 |----------|--------|
 | Root `README.md` | Project overview, public JSON API, multi-catalog, recommended Vita setup, download/install locks, commercial PKG routing, client feature summary |
+| `docs/BGDL_PREPARATION_FRAME.md` | **BGDL preparation-frame handoff**: keep ShellSvc enqueue on the main thread while presenting a visible Preparing overlay first |
 | `docs/IMAGE_CACHE.md` | **Image cache v3**: per-resource identity, H/PV/PSP/PS1 scopes, 256 buckets, URL-change replacement, startup 200 MiB → ~40 MiB trim, loading-bar progress, localization and validation |
 | `docs/MULTILANGUAGE.md` | Current UI localization architecture, packaged languages, system/manual selection, English fallback and startup localization ordering |
 | `docs/NETWORK_TLS.md` | libcurl / OpenSSL / archive.org failover / optional mbedTLS |
@@ -59,6 +60,7 @@ When fixing a bug, identify the layer:
 
 Patch the responsible layer—not a generated catalog—whenever possible.
 
+- [BGDL_PREPARATION_FRAME.md](BGDL_PREPARATION_FRAME.md) — main-thread BGDL enqueue with one-frame visible preparation handoff
 - [IMAGE_CACHE.md](IMAGE_CACHE.md) — client image cache v3 / disk policy / per-image replacement
 - [MULTILANGUAGE.md](MULTILANGUAGE.md) — localization architecture and current packaged languages
 - [NETWORK_TLS.md](NETWORK_TLS.md) — libcurl / OpenSSL / archive.org failover / optional mbedTLS
