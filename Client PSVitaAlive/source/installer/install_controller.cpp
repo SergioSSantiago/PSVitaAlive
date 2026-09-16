@@ -37,11 +37,13 @@ bool looksLikePspPs1Pkg(const std::string& linkType, const std::string& contentI
         return true;
     }
     const std::string cid = contentId; // keep case for ID tokens
+    // PS Vita retail/content IDs use PCS* title IDs (PCSA/PCSB/PCSC/.../PCSG/etc).
+    // Never classify those as PSP/PS1: Vita PKGs must stay on the system BGDL path.
+    if (cid.find("-PCS") != std::string::npos) return false;
     const char* tags[] = {
         "-NPU", "-NPE", "-NPJ", "-NPH", "-NPG",
         "-ULES", "-ULUS", "-ULJS", "-UCUS", "-UCES", "-UCJS",
         "-NPEZ", "-NPUZ", "-NPJH", "-NPHG", "-NPJG",
-        "-PCSS", "-PCSC", "-PCSF", "-PCSD", "-PCSE", // PS1 Classics title ids often in content path
     };
     for (const char* tag : tags) {
         if (cid.find(tag) != std::string::npos) return true;
@@ -217,7 +219,6 @@ bool InstallController::init() {
     diagnostics::log("[Installer] initialized");
     return true;
 }
-
 void InstallController::shutdown() {
     unlockShellDuringJob();
     stopKeepAwakeThread();
@@ -377,16 +378,16 @@ bool InstallController::requestInstall(
 
     const bool pkgInstall = BgdlClient::looksLikePkgUrl(url, fileName);
     const bool pspPs1Pkg = pkgInstall && looksLikePspPs1Pkg(linkType, contentId, fileName);
-    // PKGj-style: LiveArea → system BGDL (bubble). Adrenaline → direct download + pspemu install (no LiveArea).
-    const bool wantBgdl =
-        pkgInstall &&
-        !(pspPs1Pkg && settings_.pspTarget == PspTarget::Adrenaline) &&
-        (settings_.installMethod == InstallMethod::Bgdl ||
-         settings_.installMethod == InstallMethod::Auto ||
-         settings_.installMethod == InstallMethod::Direct);
+    // Vita PKGs must never be downloaded by PSVitaAlive itself. The only direct-PKG
+    // exception is PSP/PS1 when the user explicitly targets Adrenaline/pspemu.
+    const bool pspPs1Adrenaline =
+        pspPs1Pkg && settings_.pspTarget == PspTarget::Adrenaline;
+    const bool wantBgdl = pkgInstall && !pspPs1Adrenaline;
 
-    if (pspPs1Pkg && settings_.pspTarget == PspTarget::Adrenaline) {
+    if (pspPs1Adrenaline) {
         diagnostics::log("[Installer] PSP/PS1 PKG + Adrenaline target — skipping BGDL/LiveArea; direct download for pspemu path");
+    } else if (pkgInstall) {
+        diagnostics::log("[Installer] PKG routed to system BGDL; client-side PKG download disabled for Vita/LiveArea installs");
     }
 
     if (wantBgdl && pkgInstall) {
@@ -657,7 +658,6 @@ void InstallController::stopKeepAwakeThread() {
     sceKernelDeleteThread(keepAwakeThread_);
     keepAwakeThread_ = -1;
 }
-
 
 void InstallController::lockShellDuringJob() {
     if (shellLocked_) return;
