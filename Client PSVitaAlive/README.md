@@ -18,7 +18,7 @@ Native catalog client for PlayStation Vita / PSTV (and Vita3K for testing).
 - Header **content filters**: Homebrew **G/D Files**; Vita Games & PSP **DLC** (same toggle chip behaviour)
 - **Multilanguage UI** (`app0:lang/*.lang`): currently packaged **EN / ES / FR / DE / IT / PT-PT / PT-BR / RU**; missing keys fall back to English; catalog content stays original language
 - **News** from repo `news.txt`; optional Discord **Report** on real errors (and dedicated data-request webhook path)
-- **Image cache v3** with on-demand loading, catalog/resource-aware replacement and startup disk cap: if cache exceeds **200 MiB**, startup trims oldest complete images to about **40 MiB**; see [`../docs/IMAGE_CACHE.md`](../docs/IMAGE_CACHE.md)
+- **Image cache v3** with on-demand loading, catalog/resource-aware replacement and startup disk cap: app/icon/cover images are normalized to max **128 px**, screenshots to max **256 px**; if cache exceeds **200 MiB**, startup trims oldest complete images to about **40 MiB**; see [`../docs/IMAGE_CACHE.md`](../docs/IMAGE_CACHE.md)
 - **Data Files / Game Files** indicators on app cards
 - Downloads via libcurl (MediaFire CDN/size resolution, **Archive.org edge failover**, GitHub, …) with retry behaviour on slow links and SSL connect errors
 - Install pipeline:
@@ -101,6 +101,19 @@ with the same resource identity
 The old version is **not deleted first**. If the new download fails, the cache does not proactively erase the previous resource version.
 
 A changed icon does not purge cover/screenshots; a changed screenshot slot does not purge other slots; one catalog scope cannot purge another.
+
+### Normalization sizes
+
+Image normalization preserves aspect ratio and never enlarges images that are already below the configured limit:
+
+```text
+app / icon / cover: 128 px maximum side
+screenshots:         256 px maximum side
+```
+
+The remote image is downloaded first and then normalized locally, so the 256 px screenshot limit reduces cached disk usage and subsequent decode/texture workload, not the original network transfer size.
+
+Because this finalized v3 design had not yet been released when screenshots were reduced from 512 px to 256 px, no extra cache version or migration was added. A larger development-cache screenshot is rejected by the request-time dimension validation and is regenerated on demand at the current limit.
 
 ### Startup disk cap
 
@@ -436,7 +449,7 @@ PSP **DLC** link buttons require **LiveArea** install target **or** Adrenaline *
 
 | Doc | Topic |
 |-----|--------|
-| [`../docs/IMAGE_CACHE.md`](../docs/IMAGE_CACHE.md) | Image cache v3, per-image replacement, startup disk cap/progress |
+| [`../docs/IMAGE_CACHE.md`](../docs/IMAGE_CACHE.md) | Image cache v3, per-image replacement, normalization limits, startup disk cap/progress |
 | [source/ui/README.md](source/ui/README.md) | Themes, fonts, image cache integration, LOCKED UI, modals |
 | [source/catalog/README.md](source/catalog/README.md) | Catalog parser/cache, image identity handoff, zRIF sidecar |
 | [source/installer/README.md](source/installer/README.md) | Install paths, plugins, shell locks |
