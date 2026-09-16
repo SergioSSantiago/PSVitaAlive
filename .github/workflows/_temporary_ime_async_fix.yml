@@ -27,6 +27,17 @@ jobs:
           sed -i 's/if call_n != 2:/if call_n != 1:/' scripts/_temporary_ime_async_fix.py
           sed -i 's/Expected two synchronous search calls/Expected one synchronous search call/' scripts/_temporary_ime_async_fix.py
           sed -i 's/handleTouch(){\\n/handleTouch() {\\n/' scripts/_temporary_ime_async_fix.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/_temporary_ime_async_fix.py')
+          s = p.read_text(encoding='utf-8')
+          needle = "cpp = cpp.replace(old_call, 'if (searchRequest_) searchRequest_(searchQuery_);')"
+          extra = needle + "\ncpp = cpp.replace('if(searchRequest_)applySearch(searchRequest_(searchQuery_));', 'if(searchRequest_)searchRequest_(searchQuery_);')"
+          if s.count(needle) != 1:
+              raise SystemExit('Could not locate search replacement line in patch script')
+          s = s.replace(needle, extra, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
           python3 scripts/_temporary_ime_async_fix.py
 
       - name: Verify diff
@@ -38,6 +49,10 @@ jobs:
           grep -n "setExternalInputBlocked" 'Client PSVitaAlive/source/main.cpp' 'Client PSVitaAlive/include/ui/full_catalog_screen.hpp'
           grep -n "completeSearch" 'Client PSVitaAlive/source/main.cpp' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
           grep -n "finishFrameWithCommonDialog" 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
+          if grep -q "applySearch(searchRequest_(searchQuery_))" 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'; then
+            echo 'ERROR: synchronous search callback remains'
+            exit 1
+          fi
 
       - name: Commit fix and remove temporary files
         shell: bash
