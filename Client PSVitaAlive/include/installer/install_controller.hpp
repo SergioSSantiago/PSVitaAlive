@@ -97,8 +97,37 @@ private:
     bool shellUtilReady_ = false;
     bool shellLocked_ = false;
 
-    /** When true, worker runs PKG BGDL enqueue instead of HTTP download. */
-    bool activeBgdlJob_ = false;
+    /**
+     * BGDL must stay on the main thread because ShellSvc/IPMI enqueue proved
+     * unreliable when moved to the install worker.  requestInstall() arms this
+     * flag after publishing the "BGDL / Preparing" state.  The first status()
+     * poll deliberately reads as false so main can copy that state into the UI;
+     * after the following updateAndDraw() has presented the preparation frame,
+     * the next status() poll reads true and runs the existing BGDL enqueue path.
+     *
+     * This is intentionally a one-poll deferral, not a background BGDL worker.
+     */
+    struct DeferredBgdlFlag {
+        bool active = false;
+        mutable bool skipNextRead = false;
+
+        DeferredBgdlFlag& operator=(bool value) {
+            active = value;
+            skipNextRead = value;
+            return *this;
+        }
+
+        operator bool() const {
+            if (!active) return false;
+            if (skipNextRead) {
+                skipNextRead = false;
+                return false;
+            }
+            return true;
+        }
+    };
+    DeferredBgdlFlag activeBgdlJob_;
+
     std::string pendingAppId_;
     std::string pendingCatalogVersion_;
     std::string pendingVersionDate_;
