@@ -26,6 +26,7 @@ jobs:
           set -euo pipefail
           sed -i 's/if call_n != 2:/if call_n != 1:/' scripts/_temporary_ime_async_fix.py
           sed -i 's/Expected two synchronous search calls/Expected one synchronous search call/' scripts/_temporary_ime_async_fix.py
+          sed -i 's/handleTouch(){\\n/handleTouch() {\\n/' scripts/_temporary_ime_async_fix.py
           python3 scripts/_temporary_ime_async_fix.py
 
       - name: Verify diff
