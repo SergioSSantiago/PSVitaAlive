@@ -107,16 +107,8 @@ class ImeController {
 public:
     bool open(const std::string& initial, const std::string& title) {
         if (state_ != State::Idle) {
-            psvitaalive::diagnostics::log("[UI] IME open blocked: previous session still draining");
+            psvitaalive::diagnostics::log("[UI] IME open blocked: previous session still cooling down");
             return false;
-        }
-        if (!moduleLoadAttempted_) {
-            const int r = sceSysmoduleLoadModule(SCE_SYSMODULE_IME);
-            moduleLoadAttempted_ = true;
-            moduleOwned_ = (r >= 0);
-            char b[96];
-            sceClibSnprintf(b, sizeof(b), "[UI] SCE_SYSMODULE_IME load=0x%08X owned=%d", r, moduleOwned_ ? 1 : 0);
-            psvitaalive::diagnostics::log(b);
         }
 
         sceClibMemset(inputBuf_, 0, sizeof(inputBuf_));
@@ -143,65 +135,74 @@ public:
         resultReady_ = false;
         resultAccepted_ = false;
         resultText_.clear();
-        noneFrames_ = 0;
+        cooldownFrames_ = 0;
         ++sessionId_;
 
+        // Do not explicitly load SCE_SYSMODULE_IME here. The official VitaSDK
+        // sample, VitaShell and pkgj use sceImeDialogInit directly. Keeping the
+        // lifecycle owned by CommonDialog avoids accumulating/competing module
+        // state across many open/close cycles.
         const int r = sceImeDialogInit(&param);
         char b[128];
         sceClibSnprintf(b, sizeof(b), "[UI] IME session=%u init=0x%08X", sessionId_, r);
         psvitaalive::diagnostics::log(b);
         if (r < 0) {
-            const SceCommonDialogStatus st = sceImeDialogGetStatus();
-            sceClibSnprintf(b, sizeof(b), "[UI] IME init failed status=%d", static_cast<int>(st));
-            psvitaalive::diagnostics::log(b);
-            state_ = (st == SCE_COMMON_DIALOG_STATUS_NONE) ? State::Idle : State::Draining;
+            state_ = State::Idle;
             return false;
         }
+
         state_ = State::Running;
         return true;
     }
 
     void poll() {
         if (state_ == State::Idle) return;
-        const SceCommonDialogStatus st = sceImeDialogGetStatus();
-        if (state_ == State::Running) {
-            if (st == SCE_COMMON_DIALOG_STATUS_FINISHED) {
-                SceImeDialogResult result{};
-                const int gr = sceImeDialogGetResult(&result);
-                resultAccepted_ = (gr >= 0 && result.button == SCE_IME_DIALOG_BUTTON_ENTER);
-                resultText_ = resultAccepted_ ? utf16ToUtf8(inputBuf_) : std::string();
-                const int tr = sceImeDialogTerm();
-                resultReady_ = true;
-                state_ = State::Draining;
-                noneFrames_ = 0;
-                char b[160];
-                sceClibSnprintf(b, sizeof(b),
-                    "[UI] IME session=%u finished get=0x%08X term=0x%08X accepted=%d",
-                    sessionId_, gr, tr, resultAccepted_ ? 1 : 0);
-                psvitaalive::diagnostics::log(b);
-            } else if (st == SCE_COMMON_DIALOG_STATUS_NONE) {
-                resultAccepted_ = false;
-                resultText_.clear();
-                resultReady_ = true;
-                state_ = State::Draining;
-                noneFrames_ = 1;
-                psvitaalive::diagnostics::log("[UI] IME returned NONE while running; cancelling session");
+
+        // IMPORTANT: after sceImeDialogTerm(), do not call any sceImeDialog*
+        // status/result function again until a new session is initialized.
+        // VitaSDK's sample and long-lived apps stop polling the terminated IME.
+        // We only keep servicing CommonDialog in the normal render loop and
+        // wait a few frames before allowing another sceImeDialogInit().
+        if (state_ == State::Cooldown) {
+            if (++cooldownFrames_ >= kCooldownFrames) {
+                state_ = State::Idle;
+                cooldownFrames_ = 0;
+                psvitaalive::diagnostics::log("[UI] IME cooldown complete");
             }
             return;
         }
-        if (st == SCE_COMMON_DIALOG_STATUS_NONE) {
-            if (++noneFrames_ >= kSettleFrames) {
-                state_ = State::Idle;
-                noneFrames_ = 0;
-                psvitaalive::diagnostics::log("[UI] IME drain complete");
-            }
-        } else {
-            noneFrames_ = 0;
+
+        const SceCommonDialogStatus st = sceImeDialogGetStatus();
+        if (st == SCE_COMMON_DIALOG_STATUS_FINISHED) {
+            SceImeDialogResult result{};
+            const int gr = sceImeDialogGetResult(&result);
+            resultAccepted_ = (gr >= 0 && result.button == SCE_IME_DIALOG_BUTTON_ENTER);
+            resultText_ = resultAccepted_ ? utf16ToUtf8(inputBuf_) : std::string();
+            const int tr = sceImeDialogTerm();
+            resultReady_ = true;
+            state_ = State::Cooldown;
+            cooldownFrames_ = 0;
+
+            char b[160];
+            sceClibSnprintf(b, sizeof(b),
+                "[UI] IME session=%u finished get=0x%08X term=0x%08X accepted=%d",
+                sessionId_, gr, tr, resultAccepted_ ? 1 : 0);
+            psvitaalive::diagnostics::log(b);
+        } else if (st == SCE_COMMON_DIALOG_STATUS_NONE) {
+            // An initialized dialog unexpectedly disappearing is treated as a
+            // cancelled session. Do not call Term/GetStatus again; let the
+            // CommonDialog renderer settle before another initialization.
+            resultAccepted_ = false;
+            resultText_.clear();
+            resultReady_ = true;
+            state_ = State::Cooldown;
+            cooldownFrames_ = 0;
+            psvitaalive::diagnostics::log("[UI] IME returned NONE while running; entering cooldown");
         }
     }
 
     bool takeFinished(std::string& text, bool& accepted) {
-        if (!resultReady_) return false;
+        if (!resultReady_ || state_ != State::Idle) return false;
         text = resultText_;
         accepted = resultAccepted_;
         resultReady_ = false;
@@ -222,7 +223,7 @@ public:
             vita2d_common_dialog_update();
             vita2d_swap_buffers();
             poll();
-            if (!abortRequested && ++frames > 60 * 180) {
+            if (!abortRequested && state_ == State::Running && ++frames > 60 * 180) {
                 const int ar = sceImeDialogAbort();
                 char b[96];
                 sceClibSnprintf(b, sizeof(b), "[UI] IME blocking timeout abort=0x%08X", ar);
@@ -239,33 +240,37 @@ public:
     }
 
     void shutdown() {
-        if (state_ != State::Idle) {
+        // Only query the IME while this controller still owns a running
+        // session. Never query it again after sceImeDialogTerm().
+        if (state_ == State::Running) {
             const SceCommonDialogStatus st = sceImeDialogGetStatus();
-            if (st == SCE_COMMON_DIALOG_STATUS_RUNNING) sceImeDialogAbort();
-            if (st != SCE_COMMON_DIALOG_STATUS_NONE) sceImeDialogTerm();
+            if (st == SCE_COMMON_DIALOG_STATUS_RUNNING) {
+                const int ar = sceImeDialogAbort();
+                char b[96];
+                sceClibSnprintf(b, sizeof(b), "[UI] IME shutdown abort=0x%08X", ar);
+                psvitaalive::diagnostics::log(b);
+            } else if (st == SCE_COMMON_DIALOG_STATUS_FINISHED) {
+                sceImeDialogTerm();
+            }
         }
         state_ = State::Idle;
         resultReady_ = false;
-        if (moduleOwned_) {
-            const int r = sceSysmoduleUnloadModule(SCE_SYSMODULE_IME);
-            char b[96];
-            sceClibSnprintf(b, sizeof(b), "[UI] SCE_SYSMODULE_IME unload=0x%08X", r);
-            psvitaalive::diagnostics::log(b);
-        }
-        moduleOwned_ = false;
+        resultAccepted_ = false;
+        cooldownFrames_ = 0;
     }
 
 private:
-    enum class State { Idle, Running, Draining };
+    enum class State { Idle, Running, Cooldown };
     static constexpr SceUInt32 kMaxLen = 128;
-    static constexpr int kSettleFrames = 3;
+    // The official sample effectively gives CommonDialog at least one update
+    // after Term before reinitializing. Four frames (~64 ms at 60 Hz) add a
+    // conservative margin without touching the terminated IME API.
+    static constexpr int kCooldownFrames = 4;
     State state_ = State::Idle;
-    bool moduleLoadAttempted_ = false;
-    bool moduleOwned_ = false;
     bool resultReady_ = false;
     bool resultAccepted_ = false;
     unsigned sessionId_ = 0;
-    int noneFrames_ = 0;
+    int cooldownFrames_ = 0;
     std::string resultText_;
     SceWChar16 inputBuf_[kMaxLen + 1]{};
     SceWChar16 initialBuf_[kMaxLen + 1]{};
