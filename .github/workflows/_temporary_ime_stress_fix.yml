@@ -1,0 +1,65 @@
+name: Temporary IME Stress Crash Fix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/_temporary_ime_stress_fix.yml'
+      - 'scripts/_temporary_ime_stress_fix.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    container:
+      image: vitasdk/vitasdk:2026.08
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply IME lifecycle correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/_temporary_ime_stress_fix.py
+          git diff --check
+          grep -n "enum class State { Idle, Running, Cooldown }" 'Client PSVitaAlive/source/main.cpp'
+          grep -n "kCooldownFrames = 4" 'Client PSVitaAlive/source/main.cpp'
+          if sed -n '/class ImeController {/,/ImeController gIme;/p' 'Client PSVitaAlive/source/main.cpp' | grep -q 'sceSysmoduleLoadModule(SCE_SYSMODULE_IME)'; then
+            echo 'ERROR: explicit IME module load remains'
+            exit 1
+          fi
+          if sed -n '/class ImeController {/,/ImeController gIme;/p' 'Client PSVitaAlive/source/main.cpp' | grep -q 'State::Draining'; then
+            echo 'ERROR: old drain state remains'
+            exit 1
+          fi
+
+      - name: Compile changed Vita client objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd 'Client PSVitaAlive'
+          rm -rf ci-ime-build
+          cmake -S . -B ci-ime-build
+          cmake --build ci-ime-build --target source/main.cpp.o -j2
+          cmake --build ci-ime-build --target source/ui/full_catalog_screen.cpp.o -j2
+
+      - name: Commit correction and remove temporary files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/_temporary_ime_stress_fix.yml scripts/_temporary_ime_stress_fix.py
+          git add 'Client PSVitaAlive/source/main.cpp' \
+                  '.github/workflows/_temporary_ime_stress_fix.yml' \
+                  'scripts/_temporary_ime_stress_fix.py'
+          git diff --cached --check
+          git commit -m 'fix(client): harden repeated IME open-close lifecycle'
+          git push origin HEAD:main
