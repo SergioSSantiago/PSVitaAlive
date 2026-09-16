@@ -3,7 +3,6 @@
 #include <psp2/json.h>
 #include <psp2/sysmodule.h>
 #include <psp2/kernel/clib.h>
-#include <psp2/kernel/threadmgr.h>
 #include <psp2/io/fcntl.h>
 
 #include <cstdlib>
@@ -14,8 +13,7 @@ namespace psvitaalive {
 
 namespace {
 
-constexpr const char* IMAGE_MANIFEST_ROOT = "ux0:data/psvitaalive/cache/catalog";
-constexpr const char* IMAGE_CATALOG_TAG = "psva_cat=";
+constexpr const char* IMAGE_CACHE_TAG = "psva_cache=";
 
 class VitaJsonAllocator : public sce::Json::MemAllocator {
 public:
@@ -91,49 +89,45 @@ const char* imageCatalogPrefixForPath(const std::string& path) {
     return "H";
 }
 
-bool isAuthoritativeCatalogPath(const std::string& path) {
-    // CatalogManager validates network downloads as <catalog>.new first. Do not
-    // publish a cleanup manifest from that speculative file: it becomes
-    // authoritative only after the manager successfully promotes it.
-    return path.find(".new") == std::string::npos &&
-           path.find(".tmp") == std::string::npos;
+uint64_t fnv1a64(const std::string& value) {
+    uint64_t hash = 1469598103934665603ULL;
+    for (unsigned char c : value) {
+        hash ^= c;
+        hash *= 1099511628211ULL;
+    }
+    return hash;
 }
 
-std::string tagCatalogImageUrl(const std::string& url, const char* prefix) {
-    if (url.empty() || !prefix || !*prefix) return url;
-    if (url.find("#psva_cat=") != std::string::npos ||
-        url.find("&psva_cat=") != std::string::npos) {
-        return url;
-    }
+std::string hex64(uint64_t value) {
+    char buffer[24];
+    sceClibSnprintf(buffer, sizeof(buffer), "%016llX", static_cast<unsigned long long>(value));
+    return buffer;
+}
+
+std::string imageResourceKey(const ui::CatalogItem& item, const char* catalogPrefix, const std::string& role) {
+    const std::string owner = item.titleId.empty() ? item.id : item.titleId;
+    std::string identity = catalogPrefix ? catalogPrefix : "U";
+    identity.push_back('|');
+    identity += owner;
+    identity.push_back('|');
+    identity += role;
+    return hex64(fnv1a64(identity));
+}
+
+std::string tagCatalogImageUrl(
+    const std::string& url,
+    const char* catalogPrefix,
+    const std::string& resourceKey
+) {
+    if (url.empty() || !catalogPrefix || !*catalogPrefix || resourceKey.empty()) return url;
+
     std::string tagged = url;
     tagged += (url.find('#') == std::string::npos) ? '#' : '&';
-    tagged += IMAGE_CATALOG_TAG;
-    tagged += prefix;
+    tagged += IMAGE_CACHE_TAG;
+    tagged += catalogPrefix;
+    tagged.push_back(':');
+    tagged += resourceKey;
     return tagged;
-}
-
-std::string imageManifestPath(const char* prefix) {
-    return std::string(IMAGE_MANIFEST_ROOT) + "/images_" + prefix + ".manifest";
-}
-
-bool writeAll(SceUID fd, const char* data, size_t size) {
-    if (fd < 0 || !data) return false;
-    size_t written = 0;
-    while (written < size) {
-        const int result = sceIoWrite(fd, data + written, static_cast<SceSize>(size - written));
-        if (result <= 0) return false;
-        written += static_cast<size_t>(result);
-    }
-    return true;
-}
-
-bool writeManifestLine(SceUID fd, const char* imageNamespace, const std::string& url) {
-    if (fd < 0 || !imageNamespace || url.empty()) return true;
-    std::string line(imageNamespace);
-    line.push_back(static_cast<char>(9));
-    line += url;
-    line.push_back(static_cast<char>(10));
-    return writeAll(fd, line.data(), line.size());
 }
 
 std::string makeDownloadFileName(const std::string& url, const std::string& id) {
@@ -322,27 +316,6 @@ bool CatalogParser::parseFile(const std::string& path, std::vector<ui::CatalogIt
     }
 
     const char* imagePrefix = imageCatalogPrefixForPath(path);
-    const bool publishManifest = isAuthoritativeCatalogPath(path);
-    const std::string manifestPath = imageManifestPath(imagePrefix);
-    const std::string manifestTemp = manifestPath + ".new";
-    SceUID manifestFd = -1;
-    bool manifestOk = false;
-    if (publishManifest) {
-        sceIoRemove(manifestTemp.c_str());
-        manifestFd = sceIoOpen(
-            manifestTemp.c_str(), SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0666);
-        manifestOk = manifestFd >= 0;
-        if (manifestOk) {
-            char header[80];
-            const int len = sceClibSnprintf(
-                header, sizeof(header), "PSVAIMG1 %llu",
-                static_cast<unsigned long long>(sceKernelGetSystemTimeWide()));
-            manifestOk = len > 0 && writeAll(manifestFd, header, static_cast<size_t>(len));
-            const char nl = static_cast<char>(10);
-            if (manifestOk) manifestOk = writeAll(manifestFd, &nl, 1);
-        }
-    }
-
     const sce::Json::Array& applications = root.getArray();
     for (SceSize i = 0; i < applications.size(); ++i) {
         const sce::Json::Value& app = root[i];
@@ -374,9 +347,6 @@ bool CatalogParser::parseFile(const std::string& path, std::vector<ui::CatalogIt
 
         parseLinks(app, item, zrifIdxFd, &zrifWritten);
 
-        // Official game catalogs may use cover instead of icon and may not have
-        // a Homebrew-style status. Keep the UI stable with a neutral badge.
-        if (item.icon.empty()) item.icon = item.cover;
         if (item.status.empty()) item.status = "Available";
 
         if (item.id.empty() || item.name.empty()) {
@@ -384,20 +354,34 @@ bool CatalogParser::parseFile(const std::string& path, std::vector<ui::CatalogIt
             continue;
         }
 
-        // Internal-only catalog tag. It never reaches libcurl: ImageCache strips
-        // it before network I/O, but uses it to produce H/PV/PSP/PS1 filenames.
-        item.icon = tagCatalogImageUrl(item.icon, imagePrefix);
-        item.cover = tagCatalogImageUrl(item.cover, imagePrefix);
-        for (std::string& screenshot : item.screenshots) {
-            screenshot = tagCatalogImageUrl(screenshot, imagePrefix);
+        // Internal-only cache metadata. ImageCache strips it before libcurl sees
+        // the URL. The stable resource key lets one changed image replace only
+        // its own previous cached version instead of scanning a whole catalog.
+        if (!item.cover.empty()) {
+            item.cover = tagCatalogImageUrl(
+                item.cover,
+                imagePrefix,
+                imageResourceKey(item, imagePrefix, "cover"));
         }
 
-        if (manifestOk) {
-            manifestOk = writeManifestLine(manifestFd, "app", item.icon) && manifestOk;
-            manifestOk = writeManifestLine(manifestFd, "app", item.cover) && manifestOk;
-            for (const std::string& screenshot : item.screenshots) {
-                manifestOk = writeManifestLine(manifestFd, "shot", screenshot) && manifestOk;
-            }
+        if (!item.icon.empty()) {
+            item.icon = tagCatalogImageUrl(
+                item.icon,
+                imagePrefix,
+                imageResourceKey(item, imagePrefix, "icon"));
+        } else {
+            // Game catalogs may expose only cover. Reuse the exact same tagged
+            // resource so icon + cover do not create duplicate cache files.
+            item.icon = item.cover;
+        }
+
+        for (size_t shotIndex = 0; shotIndex < item.screenshots.size(); ++shotIndex) {
+            char role[24];
+            sceClibSnprintf(role, sizeof(role), "shot%u", static_cast<unsigned>(shotIndex));
+            item.screenshots[shotIndex] = tagCatalogImageUrl(
+                item.screenshots[shotIndex],
+                imagePrefix,
+                imageResourceKey(item, imagePrefix, role));
         }
 
         outItems.push_back(std::move(item));
@@ -405,19 +389,6 @@ bool CatalogParser::parseFile(const std::string& path, std::vector<ui::CatalogIt
 
     initializer.terminate();
     if (zrifIdxFd >= 0) sceIoClose(zrifIdxFd);
-    if (manifestFd >= 0) sceIoClose(manifestFd);
-
-    if (publishManifest) {
-        if (!outItems.empty() && manifestOk) {
-            sceIoRemove(manifestPath.c_str());
-            if (sceIoRename(manifestTemp.c_str(), manifestPath.c_str()) < 0) {
-                sceIoRemove(manifestTemp.c_str());
-            }
-        } else {
-            sceIoRemove(manifestTemp.c_str());
-        }
-    }
-
     sceClibPrintf("[CatalogParser] Loaded %u applications (zrif index entries=%u)\n",
                   static_cast<unsigned>(outItems.size()),
                   static_cast<unsigned>(zrifWritten));
