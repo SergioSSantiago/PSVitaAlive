@@ -186,6 +186,23 @@ A failed new download does **not** delete the previous version first. Superseded
 
 If an older queued request for the same resource is still pending when a newer URL is requested, the obsolete queued work is removed. If that old resource is actively downloading, cancellation is requested so the new version can take over.
 
+## Image normalization dimensions
+
+Downloaded PNG/JPEG images are normalized locally before they are marked ready for the UI. The current maximum dimensions are:
+
+```text
+app / icon / cover: 128 px maximum side
+screenshots:         256 px maximum side
+```
+
+Aspect ratio is preserved. Images smaller than the applicable limit are not enlarged; images above the limit are downscaled so neither width nor height exceeds the configured maximum.
+
+The normalized cache output is PNG. Reducing screenshots from the earlier development value of 512 px to **256 px** lowers cached disk usage and the amount of image data the Vita must decode/use for the relatively small screenshot viewport, while keeping substantially more detail than the UI can normally display at once.
+
+The finalized `v3` layout was still unpublished when this limit changed, so no additional cache-layout revision or public migration was introduced. Development caches that contain a larger normalized screenshot are rejected by `request()`'s dimension validation when that resource is requested; the stale file is removed and the resource is downloaded/normalized again at the current 256 px limit.
+
+This normalization limit does **not** reduce the first network transfer size: the original remote image is downloaded first and then normalized on-device for subsequent cache use.
+
 ## Per-image replacement
 
 After the new image succeeds, `pruneSupersededVersions()` opens only the image's bucket and looks for siblings sharing the same identity stem:
@@ -474,7 +491,8 @@ When changing this subsystem, test at least:
 12. Loading overlay remains responsive during scan/cleanup.
 13. Startup maintenance text resolves in every currently packaged language.
 14. `app_` / `shot_` path classification still works in `FullCatalogScreen`.
-15. Build and run on Vita3K; validate on real PS Vita before release when possible.
+15. Screenshot normalization produces a maximum side of 256 px while app/icon/cover images remain capped at 128 px.
+16. Build and run on Vita3K; validate on real PS Vita before release when possible.
 
 ## Files to review when modifying the cache
 
@@ -482,7 +500,7 @@ When changing this subsystem, test at least:
 |---|---|
 | `Client PSVitaAlive/source/catalog/catalog_parser.cpp` | catalog scope + stable resource identity + internal URL tag |
 | `Client PSVitaAlive/include/ui/image_cache.hpp` | public cache API + startup maintenance callback |
-| `Client PSVitaAlive/source/ui/image_cache.cpp` | paths, downloads, validation, replacement, startup size policy |
+| `Client PSVitaAlive/source/ui/image_cache.cpp` | paths, downloads, normalization limits, validation, replacement, startup size policy |
 | `Client PSVitaAlive/source/main.cpp` | localization/startup ordering + progress UI callback |
 | `Client PSVitaAlive/include/localization/localization.hpp` | localized startup cache fallback |
 | `Client PSVitaAlive/source/ui/full_catalog_screen.cpp` | loading overlay and texture/cache consumers |
