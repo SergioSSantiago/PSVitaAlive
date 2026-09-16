@@ -52,6 +52,18 @@ bool looksLikePspPs1Pkg(const std::string& linkType, const std::string& contentI
     if (fn.find("psp") != std::string::npos || fn.find("ps1") != std::string::npos) return true;
     return false;
 }
+
+// Vita commercial PKG URLs from Sony/NPS catalogs may end in an opaque CDN token
+// rather than ".pkg". content_id is therefore authoritative metadata for routing:
+// any Vita PCS* content ID must enter BGDL before DownloadManager sees the URL.
+bool looksLikeVitaPkgMetadata(const std::string& contentId, const std::string& zrif) {
+    if (!zrif.empty()) return true;
+    if (contentId.empty()) return false;
+    std::string cid = contentId;
+    for (char& c : cid) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    if (cid.find("-PCS") != std::string::npos) return true;
+    return cid.size() >= 3 && cid[0] == 'P' && cid[1] == 'C' && cid[2] == 'S';
+}
 } // namespace
 
 namespace psvitaalive {
@@ -376,14 +388,21 @@ bool InstallController::requestInstall(
     activeZrif_ = zrif;
     activeContentId_ = contentId;
 
-    const bool pkgInstall = BgdlClient::looksLikePkgUrl(url, fileName);
-    const bool pspPs1Pkg = pkgInstall && looksLikePspPs1Pkg(linkType, contentId, fileName);
+    // Do not rely only on a .pkg suffix. Sony/NPS Vita CDN URLs often end in an
+    // opaque token, while their content_id still unambiguously identifies PCS*.
+    const bool vitaPkgByMetadata = looksLikeVitaPkgMetadata(contentId, zrif);
+    const bool pkgInstall = vitaPkgByMetadata || BgdlClient::looksLikePkgUrl(url, fileName);
+    const bool pspPs1Pkg = pkgInstall && !vitaPkgByMetadata &&
+        looksLikePspPs1Pkg(linkType, contentId, fileName);
     // Vita PKGs must never be downloaded by PSVitaAlive itself. The only direct-PKG
     // exception is PSP/PS1 when the user explicitly targets Adrenaline/pspemu.
     const bool pspPs1Adrenaline =
         pspPs1Pkg && settings_.pspTarget == PspTarget::Adrenaline;
     const bool wantBgdl = pkgInstall && !pspPs1Adrenaline;
 
+    if (vitaPkgByMetadata) {
+        diagnostics::log("[Installer] Vita PCS* PKG detected from metadata; forcing system BGDL before client download");
+    }
     if (pspPs1Adrenaline) {
         diagnostics::log("[Installer] PSP/PS1 PKG + Adrenaline target — skipping BGDL/LiveArea; direct download for pspemu path");
     } else if (pkgInstall) {
