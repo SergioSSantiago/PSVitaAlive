@@ -27,6 +27,7 @@ Current behaviour:
 - Catalog-aware scopes are `H` (Homebrew), `PV` (PS Vita), `PSP`, and `PS1`.
 - Each icon/cover/screenshot has a **stable resource identity** independent of its current URL.
 - Cache files include both the stable resource identity and the current URL hash.
+- App/icon/cover images are normalized with a maximum dimension of **128 px**; screenshots are normalized with a maximum dimension of **256 px**, preserving aspect ratio.
 - If an image URL changes, the new version downloads first; after successful validation, only older versions of that **same resource** are removed.
 - A changed icon cannot remove a cover or screenshot, and one catalog cannot remove another catalog's images.
 - Resource files are spread over **256 buckets** under `ux0:data/psvitaalive/cache/images/v3/` so per-image replacement does not scan the whole cache.
