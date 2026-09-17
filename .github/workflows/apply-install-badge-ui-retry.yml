@@ -1,0 +1,64 @@
+name: Retry localized install badge UI patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/apply-install-badge-ui-retry.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Reuse validated patch script
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/apply-install-badge-ui.yml').read_text(encoding='utf-8')
+          marker = '      - name: Apply exact UI and localization patch\n'
+          start = workflow.index(marker)
+          run_marker = '        run: |\n'
+          run_start = workflow.index(run_marker, start) + len(run_marker)
+          end = workflow.index('\n      - name: Diff validation', run_start)
+          script = textwrap.dedent(workflow[run_start:end])
+          Path('/tmp/apply_badge_patch.sh').write_text(script, encoding='utf-8')
+          PY
+          bash /tmp/apply_badge_patch.sh
+
+      - name: Normalize markdown EOF and validate diff
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ('docs/MULTILANGUAGE.md', 'docs/UPDATE_DETECTION.md'):
+              p = Path(name)
+              p.write_text(p.read_text(encoding='utf-8').rstrip() + '\n', encoding='utf-8')
+          PY
+          git diff --check
+          git diff --stat
+
+      - name: Commit patch to main
+        shell: bash
+        run: |
+          git config user.name "PSVitaAlive Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add "Client PSVitaAlive/source/ui/full_catalog_screen.cpp" \
+                  "Client PSVitaAlive/include/localization/localization.hpp" \
+                  "Client PSVitaAlive/source/localization/localization.cpp" \
+                  "Client PSVitaAlive/assets/lang" \
+                  "docs/MULTILANGUAGE.md" \
+                  "docs/UPDATE_DETECTION.md"
+          git commit -m "feat: simplify localized install and update badges"
+          git push origin HEAD:main
