@@ -456,3 +456,7 @@ PSP **DLC** link buttons require **LiveArea** install target **or** Adrenaline *
 | [docs/NETWORK_TLS.md](../docs/NETWORK_TLS.md) | libcurl / archive.org failover |
 | [docs/MULTILANGUAGE.md](../docs/MULTILANGUAGE.md) | Localization architecture |
 | Root [README.md](../README.md) | Catalogs, device recommendations |
+
+### Navigation-aware image scheduling
+
+Catalog image work is paused while vertical navigation is physically held, while scroll animation is moving, and for a short post-navigation grace period. App/icon GPU textures use a bounded 18-entry LRU so reversing direction can reuse recent 128 px textures instead of immediately freeing and decoding them again; screenshots remain aggressively released with their existing 6-texture limit. See `../docs/IMAGE_CACHE.md` for the full policy.

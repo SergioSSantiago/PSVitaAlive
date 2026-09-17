@@ -241,6 +241,10 @@ private:
     bool touchMoved_ = false;
     uint64_t touchDownMs_ = 0;
     float touchAccumY_ = 0.f; // residual drag for less-sensitive scroll
+    // Image scheduler: physical vertical navigation remains busy even between D-pad repeat steps.
+    bool verticalNavHeld_ = false;
+    bool imageNavigationCancelIssued_ = false;
+    uint64_t imageWorkResumeAfterUs_ = 0;
     // Smooth motion / feedback
     float visualCatalogScroll_ = 0.f;
     float visualDetailScroll_ = 0.f;
@@ -311,7 +315,7 @@ private:
     void releaseScreenshotTextures();
     void scheduleTextureFree(vita2d_texture* texture);
     void flushDeferredTextureFrees();
-    /** Free GPU textures whose disk path is not in keep (visible set). */
+    /** Free off-screen screenshot textures; app/icon textures remain in the bounded LRU. */
     void releaseTexturesNotIn(const std::unordered_set<std::string>& keep);
     void touchTexture(const std::string& path);
     void evictTextureIfNeeded(const std::string& namespaceName);

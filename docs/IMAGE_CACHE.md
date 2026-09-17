@@ -534,3 +534,22 @@ When changing this subsystem, test at least:
 | `Client PSVitaAlive/source/ui/full_catalog_screen.cpp` | loading overlay and texture/cache consumers |
 
 The client code remains the source of truth if this document ever drifts.
+
+## Navigation-aware image scheduling and app texture LRU
+
+Real-hardware testing showed two remaining hitch sources after the initial UI-first image work: the D-pad auto-repeat gap and immediate GPU texture release.
+
+The client now treats vertical navigation as busy while **UP/DOWN is physically held**, while catalog/detail scroll animation is still moving, and for **150 ms after the last held-navigation frame**. This is intentionally independent of the D-pad repeat cadence (320 ms initial delay / 420 ms repeat interval), so the image worker cannot mistake the pause between repeat steps for the user having stopped.
+
+While navigation is busy:
+
+- queued/active image work is cancelled once on entry;
+- no new image network request is started;
+- no new PNG/JPEG GPU texture decode is started;
+- already resident GPU textures continue to render normally.
+
+Once navigation settles, the final viewport resumes on-demand image preparation at the existing one-new-texture-per-frame limit.
+
+Application/icon textures now use the existing bounded GPU LRU as intended. Leaving the viewport no longer immediately frees an `app_` texture. Up to `MAX_APP_TEXTURES = 18` recent app textures may remain resident; loading the next app texture evicts the least-recently-used app texture only when that bound is reached. With normalized app images capped at 128 px, a 128x128 RGBA surface is about 64 KiB, so 18 raw surfaces are roughly 1.1 MiB before vita2d/GXM overhead.
+
+Screenshots keep the previous aggressive policy: off-screen `shot_` textures are released and `MAX_SCREENSHOT_TEXTURES = 6` remains unchanged. Catalog switches still call the full texture release path, so textures never leak across catalogs.

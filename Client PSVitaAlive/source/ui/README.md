@@ -135,3 +135,7 @@ Long titles use ellipsis / marquee with **parent clipping** so names do not spil
 ## Settings INFO
 
 INFO panel documents each focused option (install method, PSP target/media, language, font, theme, plugins, images, updates). SYSTEM block lists plugin detection status with larger type.
+
+### D-pad navigation-aware image scheduler
+
+`FullCatalogScreen` treats held UP/DOWN as continuous navigation even during the controller repeat delay. While navigation is busy it cancels image work once, starts no new network request or GPU decode, and keeps resident textures drawable. App textures that leave the viewport remain in the existing 18-entry LRU; off-screen screenshots are still released immediately.
