@@ -1236,14 +1236,10 @@ bool itemMatchesContentFilter(const CatalogItem& it, CatalogType cat) {
     return false;
 }
 
-/** Categories where Data/Game Files requests make sense (catalog category_id). */
+/** Only Games and Ports may request Data/Game Files. */
 bool categoryWantsDataFiles(const std::string& category) {
-    std::string c = lowerAscii(category);
-    // ports / games / emulators (+ media). Skip utilities & plugins.
-    return c == "ports" || c == "games" || c == "emulators" || c == "media"
-        || c.find("port") != std::string::npos
-        || c.find("game") != std::string::npos
-        || c.find("emulator") != std::string::npos;
+    const std::string c = lowerAscii(category);
+    return c == "games" || c == "ports";
 }
 
 
@@ -3787,7 +3783,7 @@ void FullCatalogScreen::handleTouch() {
                 else enterLinkNavigation();
                 return;
             }
-            if (itemEligibleForDataRequest(tapItem)) {
+            if (!state_.linkNavigation && itemEligibleForDataRequest(tapItem)) {
                 const int rby = !tapItem.linkDetails.empty() ? (by + bh + 6) : by;
                 if (hit(x, y, bx, rby, bw, 32)) {
                     openDataRequestConfirm();
@@ -6116,7 +6112,7 @@ void FullCatalogScreen::drawDetailPanel(int x,int y,int w,int h){
                                 linkLab, true, bx + 4, by, bx + bw - 4, by + bh);
             }
         }
-        if (itemEligibleForDataRequest(it)) {
+        if (!state_.linkNavigation && itemEligibleForDataRequest(it)) {
             // Below Select links when present; same header column when no links.
             // Amber identity color so it stands out from green "Select links".
             const unsigned REQ = RGBA8(0xFF, 0xB0, 0x20, 255);
