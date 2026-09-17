@@ -1,5 +1,5 @@
-id: 2026-09-15-0001
-title: PSVitaAlive 02.04 is here!
+id: 2026-09-17-0001
+title: PSVitaAlive 02.05 is here!
 enabled: true
 ---
 # Thanks for using PS Vita Alive Store.
@@ -18,9 +18,15 @@ enabled: true
 
 ## Improvements
 
-- Fixed an issue causing errors during ZIP file extraction (64-bit offsets).
-- Improved Homebrew update detection.
-- Removed error reporting for insufficient storage or lack of internet connection, as these were generating false positives.
+- Added OLED/LCD screen protection mode for long downloads, extractions, and installations.
+- Fixed crashes caused by repeatedly opening and closing the search keyboard.
+- Major image loading, caching, memory usage, and scrolling performance improvements.
+- Improved PS Vita PKG installation through BGDL, including better handling of extensionless PKG links.
+- Fixed self-update version detection to reliably use GitHub release tags.
+- Improved UI responsiveness and Settings performance.
+- Additional stability fixes and catalog updates.
+
+---
 
 ### Tips:
 - iTLS-ENSO (full) recommended for HTTPS
