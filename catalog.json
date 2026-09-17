@@ -345,6 +345,52 @@
     ]
   },
   {
+    "id": "asphalt-5",
+    "title_id": "ASPHALT05",
+    "name": "Asphalt 5",
+    "description": "Native PS Vita wrapper/port of Asphalt 5, originally published by Gameloft for Android, built on soloader-boilerplate.",
+    "long_description": "Asphalt 5 is Gameloft's arcade racing game, originally released for Android as Asphalt-5-HD-v3.4.1.apk. This port runs the compiled native library (libasphalt5.so) from the Android release directly on the PS Vita's ARM Cortex-A9 processor, using a dynamic loader (soloader) and an Android environment emulation layer (FalsoJNI), with vitaGL providing the GLES 1.1 fixed-function rendering backend.",
+    "author_ids": [
+      "claude-ai",
+      "metalsyntax"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "arcade",
+      "racing"
+    ],
+    "version": "1.0.2",
+    "version_date": "2026-09-11",
+    "requirements": "- kubridge and FdFix installed as kernel plugins (ur0:tai/config.txt under *KERNEL).\n- libshacccg.suprx installed in ur0:data/.",
+    "size": 1992294,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/asphalt-5-ps-vita/asphalt5%20v1.0.2.vpk",
+        "size": 1992294,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/asphalt-5-ps-vita/Game%20Files.zip",
+        "size": 166199296,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "Github",
+        "url": "https://github.com/MetalSyntax/Asphalt-5-Vita"
+      }
+    ],
+    "icon": "https://archive.org/download/asphalt-5-ps-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/asphalt-5-ps-vita/shot0.png"
+    ]
+  },
+  {
     "id": "golden-balloon",
     "title_id": "GBLN00001",
     "name": "Golden Balloon",
@@ -1685,6 +1731,47 @@
     "source_url": "https://github.com/NDRWhun/JAVITA",
     "release_page": "https://github.com/NDRWhun/JAVITA/releases",
     "updated_at": "2026-08-22T15:39"
+  },
+  {
+    "id": "jazz-jackrabbit-2-resurrection",
+    "title_id": "JAZZ20000",
+    "name": "Jazz Jackrabbit 2 Resurrection",
+    "description": "Jazz² Resurrection is reimplementation of the game Jazz Jackrabbit 2 released in 1998.",
+    "long_description": "Jazz² Resurrection is reimplementation of the game Jazz Jackrabbit 2 released in 1998. Supports various versions of the game (Shareware Demo, Holiday Hare '98, The Secret Files and Christmas Chronicles). Also, it partially supports some features of JJ2+ extension and MLLE.",
+    "author_ids": [
+      "deathkiller"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "arcade",
+      "platformer",
+      "puzzle"
+    ],
+    "version": "3.8.0",
+    "version_date": "2026-08-22",
+    "requirements": "- Extract libshacccg.suprx from the console firmware to ur0:/data/, shaders are compiled on the console\n- Copy contents of original Jazz Jackrabbit 2 directory to ux0:/data/jazz2/Source/",
+    "size": 5033165,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/jazz-jackrabbit-2-resurrection-ps-vita/Jazz2%20v3.8.0.vpk",
+        "size": 5033165,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/jazz-jackrabbit-2-resurrection-ps-vita/Game%20Files.zip",
+        "size": 49597645,
+        "extract_path": "ux0:data/"
+      }
+    ],
+    "icon": "https://archive.org/download/jazz-jackrabbit-2-resurrection-ps-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/jazz-jackrabbit-2-resurrection-ps-vita/shot0.png"
+    ]
   },
   {
     "id": "immortal-dusk-vita",
