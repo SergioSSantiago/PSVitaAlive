@@ -30,7 +30,7 @@ public:
     std::string request(const std::string& url, const std::string& namespaceName);
     /** Resolve local cache path without queueing a download. */
     std::string pathFor(const std::string& url, const std::string& namespaceName) const;
-    /** Drop queued jobs whose path is not in keep (active download is left alone). */
+    /** Drop queued jobs outside keep and request cancellation when the active image leaves keep. */
     void cancelQueuedExcept(const std::unordered_set<std::string>& keep);
 
     // Queue a remote image for background download without requiring it to be

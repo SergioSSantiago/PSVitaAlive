@@ -32,6 +32,7 @@ Current behaviour:
 - A changed icon cannot remove a cover or screenshot, and one catalog cannot remove another catalog's images.
 - Resource files are spread over **256 buckets** under `ux0:data/psvitaalive/cache/images/v3/` so per-image replacement does not scan the whole cache.
 - Existing `/app_` and `/shot_` path classification remains compatible with the texture-management logic in `FullCatalogScreen`.
+- UI-first scheduling defers new network image requests while catalog/detail scrolling is still animated, while allowing already-ready cached textures to continue loading under the one-texture-per-frame budget. Off-screen active image transfers are cancelled through the existing libcurl cancellation callback, and worker progress publication is limited to 10 Hz to reduce mutex pressure during navigation.
 
 ### Startup disk cap
 

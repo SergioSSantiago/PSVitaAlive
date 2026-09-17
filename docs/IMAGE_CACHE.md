@@ -186,6 +186,34 @@ A failed new download does **not** delete the previous version first. Superseded
 
 If an older queued request for the same resource is still pending when a newer URL is requested, the obsolete queued work is removed. If that old resource is actively downloading, cancellation is requested so the new version can take over.
 
+## UI-first scheduling while browsing
+
+Image network work is intentionally subordinate to catalog navigation on real PS Vita hardware. `FullCatalogScreen` still defines the exact viewport set first (9 app images in Full Catalog and 3 app images in the split Detail list, plus only screenshots intersecting the visible Detail body), releases/cancels work outside that set, and then decides whether new image work may start.
+
+While the animated catalog scroll has not settled near `catalogScrollRow`, missing app images are **not newly queued for network download**. Images already marked ready in the local cache may still be decoded into a GPU texture, limited to the existing one-new-texture-per-frame budget. This keeps already-cached browsing responsive without allowing rapid Up/Down navigation to create a download/cancel storm for intermediate rows.
+
+The same policy applies to screenshots while the Detail body itself is still scrolling: a missing screenshot waits until the Detail scroll settles, while an already-ready cached screenshot may be prepared normally.
+
+`cancelQueuedExcept()` also covers the currently active image transfer. If `currentPath_` leaves the viewport keep-set, `cancelRequested_` is raised and the existing libcurl cancellation callback stops the transfer. The worker keeps the active identity through normalization and checks cancellation again before publishing the result, so work that became obsolete at the transfer/normalize boundary is discarded instead of being marked ready.
+
+Image download progress is published to shared UI state at most every **100 ms (10 Hz)**, with a final known-total update allowed immediately. The worker still tracks the latest byte counters locally for accounting; throttling only reduces cross-thread mutex traffic and does not limit network throughput.
+
+Conceptually:
+
+```text
+rapid catalog navigation
+        ↓
+compute final visible keep-set
+        ↓
+prune queued off-screen work
+        ↓
+cancel active transfer if it left the keep-set
+        ↓
+scroll still moving?
+   ├─ yes → reuse/decode ready cache only; no new network requests
+   └─ no  → queue missing images for the settled viewport
+```
+
 ## Image normalization dimensions
 
 Downloaded PNG/JPEG images are normalized locally before they are marked ready for the UI. The current maximum dimensions are:

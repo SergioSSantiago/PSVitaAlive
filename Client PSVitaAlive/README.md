@@ -18,7 +18,7 @@ Native catalog client for PlayStation Vita / PSTV (and Vita3K for testing).
 - Header **content filters**: Homebrew **G/D Files**; Vita Games & PSP **DLC** (same toggle chip behaviour)
 - **Multilanguage UI** (`app0:lang/*.lang`): currently packaged **EN / ES / FR / DE / IT / PT-PT / PT-BR / RU**; missing keys fall back to English; catalog content stays original language
 - **News** from repo `news.txt`; optional Discord **Report** on real errors (and dedicated data-request webhook path)
-- **Image cache v3** with on-demand loading, catalog/resource-aware replacement and startup disk cap: app/icon/cover images are normalized to max **128 px**, screenshots to max **256 px**; if cache exceeds **200 MiB**, startup trims oldest complete images to about **40 MiB**; see [`../docs/IMAGE_CACHE.md`](../docs/IMAGE_CACHE.md)
+- **Image cache v3** with UI-first on-demand loading, catalog/resource-aware replacement and startup disk cap: app/icon/cover images are normalized to max **128 px**, screenshots to max **256 px**; rapid catalog/detail scrolling suppresses new network image requests, off-screen active image transfers are cancellable, and shared download progress is throttled to 10 Hz; if cache exceeds **200 MiB**, startup trims oldest complete images to about **40 MiB**; see [`../docs/IMAGE_CACHE.md`](../docs/IMAGE_CACHE.md)
 - **Data Files / Game Files** indicators on app cards
 - Downloads via libcurl (MediaFire CDN/size resolution, **Archive.org edge failover**, GitHub, …) with retry behaviour on slow links and SSL connect errors
 - Install pipeline:

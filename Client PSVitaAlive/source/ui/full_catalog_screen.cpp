@@ -4832,6 +4832,12 @@ void FullCatalogScreen::prepareVisibleTextures(){
 
     // At most one new GPU texture decode per frame (avoids hitch + free/load storms).
     constexpr int kLoadsPerFrame = 1;
+    // UI-first scheduling: do not enqueue missing network images while animated scroll is still moving.
+    // Already-ready cache entries may still be decoded one per frame, preserving fast cached browsing.
+    const float targetCatalogScroll=static_cast<float>(state_.catalogScrollRow);
+    const bool catalogScrollMoving=std::fabs(targetCatalogScroll-visualCatalogScroll_)>0.08f;
+    const float targetDetailScroll=static_cast<float>(state_.detailScroll);
+    const bool detailScrollMoving=std::fabs(targetDetailScroll-visualDetailScroll_)>4.0f;
 
     if(state_.mode==UiMode::FULL_CATALOG){
         const int first=std::max(0, state_.catalogScrollRow*3);
@@ -4849,7 +4855,9 @@ void FullCatalogScreen::prepareVisibleTextures(){
             const CatalogItem& it=catalogView()[i];
             const std::string& url=!it.icon.empty()?it.icon:it.cover;
             if(url.empty())continue;
-            // Only enqueue download / decode for the current viewport.
+            // While the list is still moving, never create fresh network work.
+            // A texture already marked ready may still decode from local cache.
+            if(catalogScrollMoving){const std::string path=pathOnly(url,"app");if(path.empty()||!imageCache_->isReady(path))continue;}
             const size_t before=textures_.size();
             prepareImageTexture(url, "app");
             if(textures_.size()>before)++loads;
@@ -4898,6 +4906,8 @@ void FullCatalogScreen::prepareVisibleTextures(){
         int loads=0;
         auto prepareOne=[&](const std::string& url, const char* ns){
             if(loads>=kLoadsPerFrame||url.empty())return;
+            const bool deferNetwork=catalogScrollMoving||(std::strcmp(ns,"shot")==0&&detailScrollMoving);
+            if(deferNetwork){const std::string path=pathOnly(url,ns);if(path.empty()||!imageCache_->isReady(path))return;}
             const size_t before=textures_.size();
             prepareImageTexture(url, ns);
             if(textures_.size()>before)++loads;
