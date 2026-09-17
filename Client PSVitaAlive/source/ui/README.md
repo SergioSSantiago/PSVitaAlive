@@ -136,6 +136,12 @@ Long titles use ellipsis / marquee with **parent clipping** so names do not spil
 
 INFO panel documents each focused option (install method, PSP target/media, language, font, theme, plugins, images, updates). SYSTEM block lists plugin detection status with larger type.
 
+## Settings performance
+
+Settings is deliberately **render-only after entry**. Opening Settings cancels queued/active catalog image work, snapshots plugin status once, and then renders the SYSTEM status block from RAM. `drawSettings()` must not call filesystem-backed plugin probes such as `essentialPluginFullyInstalled()` or `TaiConfigEditor::configContainsLine()` because those operations open/read `ur0:tai/config.txt` and can collapse frame rate on real hardware.
+
+`updateAndDraw()` also skips `prepareVisibleTextures()` while `UiMode::SETTINGS` is active. Existing app textures remain resident in the bounded LRU and image preparation resumes automatically after Settings closes.
+
 ### D-pad navigation-aware image scheduler
 
 `FullCatalogScreen` treats held UP/DOWN as continuous navigation even during the controller repeat delay. While navigation is busy it cancels image work once, starts no new network request or GPU decode, and keeps resident textures drawable. App textures that leave the viewport remain in the existing 18-entry LRU; off-screen screenshots are still released immediately.

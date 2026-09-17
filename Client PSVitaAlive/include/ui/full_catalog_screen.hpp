@@ -350,6 +350,11 @@ private:
 
     ::psvitaalive::AppSettingsData settingsEdit_{};
     ::psvitaalive::PluginStatus pluginsStatus_{};
+    // Snapshot expensive filesystem-backed plugin checks once when Settings opens.
+    bool settingsKubridgeOk_ = false;
+    bool settingsRepatchOk_ = false;
+    bool settingsFdFixOk_ = false;
+    bool settingsLibshacccgOk_ = false;
     SettingsSaveFn settingsSave_;
     int settingsFocus_ = 0;
     UiMode settingsReturnMode_ = UiMode::FULL_CATALOG;

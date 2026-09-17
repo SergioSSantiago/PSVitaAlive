@@ -37,7 +37,7 @@ Native catalog client for PlayStation Vita / PSTV (and Vita3K for testing).
   - Progress UI shows a **LOCKED** banner; toasts if START / SELECT / L-R / other keys are pressed
 - Voluntary cancel shows **Download cancelled** (not a false install failure)
 - **Automatic self-update** from [GitHub Releases](https://github.com/VegettoSan/PSVitaAlive/releases) via helper **PSVAUPDT1**
-- Plugin detection (AutoPlugin2-style parser; prefer **ur0:tai** over ux0); Settings **INFO → SYSTEM** shows NoNpDrm, NoPspEmuDrm, kubridge, fd_fix, libshacccg
+- Plugin detection (AutoPlugin2-style parser; prefer **ur0:tai** over ux0); Settings **INFO → SYSTEM** shows NoNpDrm, NoPspEmuDrm, kubridge, fd_fix, libshacccg. Filesystem-backed plugin checks are snapshotted once when Settings opens, so the render loop does not repeatedly read `ur0:tai/config.txt` or probe plugin files.
 - Brand logo / loading splash can use monochrome assets tinted by the active theme
 - Logs: `session.log`, `install.log`, `updater.log`
 

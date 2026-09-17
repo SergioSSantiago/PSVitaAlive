@@ -214,6 +214,12 @@ scroll still moving?
    └─ no  → queue missing images for the settled viewport
 ```
 
+## Settings image-work suspension
+
+Settings is treated as a UI-only surface. When it opens, `FullCatalogScreen` cancels queued/active catalog image work once and `updateAndDraw()` stops calling `prepareVisibleTextures()` until Settings closes. Already-created app textures stay resident in the existing bounded LRU, so returning to the catalog does not force unnecessary decode/reload churn.
+
+This also keeps Settings isolated from image-network and GPU-decode contention while the user changes options. No catalog schema or disk-cache format changes are involved.
+
 ## Image normalization dimensions
 
 Downloaded PNG/JPEG images are normalized locally before they are marked ready for the UI. The current maximum dimensions are:

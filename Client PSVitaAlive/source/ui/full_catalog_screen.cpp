@@ -3874,15 +3874,29 @@ void FullCatalogScreen::openSettings() {
         return;
     }
     if (state_.mode == UiMode::SETTINGS) return;
+
+    // Settings must be render-only after entry: cancel catalog image work and perform
+    // filesystem-backed plugin detection exactly once instead of from drawSettings().
+    if (imageCache_) {
+        static const std::unordered_set<std::string> emptyImageKeep;
+        imageCache_->cancelQueuedExcept(emptyImageKeep);
+    }
+    pluginsStatus_ = ::psvitaalive::PluginDetector::scan();
+    settingsKubridgeOk_ = essentialPluginFullyInstalled(
+        "*KERNEL", "ur0:tai/kubridge.skprx", {"ur0:tai/kubridge.skprx"});
+    settingsRepatchOk_ = pluginsStatus_.repatch;
+    settingsFdFixOk_ = pluginsStatus_.fdFix || settingsRepatchOk_;
+    settingsLibshacccgOk_ = essentialFilePresent({
+        "ur0:/data/libshacccg.suprx", "ur0:data/libshacccg.suprx", "ux0:data/libshacccg.suprx"});
+
     settingsReturnMode_ = (state_.mode == UiMode::SPLIT_DETAIL) ? UiMode::SPLIT_DETAIL : UiMode::FULL_CATALOG;
     settingsFocus_ = 0;
-    settingsInfoScrollY_ = 0.f;
     settingsInfoScrollY_ = 0.f;
     settingsEnter_ = 0.f;
     settingsFocusY_ = 0.f;
     settingsScrollY_ = 0.f;
     state_.mode = UiMode::SETTINGS;
-    diagnostics::log("[UI] settings opened");
+    diagnostics::log("[UI] settings opened (plugin status snapshot ready)");
 }
 
 void FullCatalogScreen::closeSettings(bool save) {
@@ -4432,25 +4446,11 @@ void FullCatalogScreen::drawSettings() {
             };
             pushPlug("NoNpDrm", pluginsStatus_.nonpdrm);
             pushPlug("NoPspEmuDrm", pluginsStatus_.nopspemudrmKern);
-            {
-                const bool kub = essentialPluginFullyInstalled(
-                    "*KERNEL", "ur0:tai/kubridge.skprx",
-                    {"ur0:tai/kubridge.skprx"});
-                const bool fdfFile = essentialPluginFullyInstalled(
-                    "*KERNEL", "ur0:tai/fd_fix.skprx",
-                    {"ur0:tai/fd_fix.skprx"});
-                const bool rep = essentialPluginFullyInstalled(
-                    "*KERNEL", "ur0:tai/repatch.skprx",
-                    {"ur0:tai/repatch.skprx", "ur0:tai/repatch_ex.skprx"});
-                const bool fdf = fdfFile || rep || pluginsStatus_.fdFix;
-                const bool sha =
-                    essentialFilePresent({"ur0:/data/libshacccg.suprx", "ur0:data/libshacccg.suprx",
-                                                "ux0:data/libshacccg.suprx"});
-                pushPlug("kubridge", kub);
-                pushPlug("RePatch", rep);
-                pushPlug("fd_fix", fdf);
-                pushPlug("libshacccg", sha);
-            }
+            // Pure RAM reads: disk/config probing is snapshotted once in openSettings().
+            pushPlug("kubridge", settingsKubridgeOk_);
+            pushPlug("RePatch", settingsRepatchOk_);
+            pushPlug("fd_fix", settingsFdFixOk_);
+            pushPlug("libshacccg", settingsLibshacccgOk_);
             if (!pluginsStatus_.configPathUsed.empty()) {
                 pushWrapped(pluginsStatus_.configPathUsed.c_str(), DIM, 0.60f, 18);
             }
@@ -7336,7 +7336,8 @@ void FullCatalogScreen::drawFullCatalog(){vita2d_start_drawing();vita2d_set_clea
     updateTransition();
     pollSelfUpdateProgress();
     updateAnimations();
-    if(catalogSwitchCooldownFrames_==0)prepareVisibleTextures();
+    // Settings is intentionally image-worker quiet; existing GPU textures remain resident.
+    if(state_.mode!=UiMode::SETTINGS&&catalogSwitchCooldownFrames_==0)prepareVisibleTextures();
     draw();
     const uint64_t frameEndUs=sceKernelGetProcessTimeWide();
     const uint64_t frameUs=frameEndUs>=frameStartUs?frameEndUs-frameStartUs:0;
