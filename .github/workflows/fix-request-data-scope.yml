@@ -25,37 +25,30 @@ jobs:
           path = Path('Client PSVitaAlive/source/ui/full_catalog_screen.cpp')
           text = path.read_text(encoding='utf-8')
 
-          old_categories = '''/** Categories where Data/Game Files requests make sense (catalog category_id). */
-          bool categoryWantsDataFiles(const std::string& category) {
-              std::string c = lowerAscii(category);
-              // ports / games / emulators (+ media). Skip utilities & plugins.
-              return c == "ports" || c == "games" || c == "emulators" || c == "media"
-                  || c.find("port") != std::string::npos
-                  || c.find("game") != std::string::npos
-                  || c.find("emulator") != std::string::npos;
-          }
-          '''
+          old_categories = ('/** Categories where Data/Game Files requests make sense (catalog category_id). */\n'
+                            'bool categoryWantsDataFiles(const std::string& category) {\n'
+                            '    std::string c = lowerAscii(category);\n'
+                            '    // ports / games / emulators (+ media). Skip utilities & plugins.\n'
+                            '    return c == "ports" || c == "games" || c == "emulators" || c == "media"\n'
+                            '        || c.find("port") != std::string::npos\n'
+                            '        || c.find("game") != std::string::npos\n'
+                            '        || c.find("emulator") != std::string::npos;\n'
+                            '}')
+          new_categories = ('/** Only Games and Ports may request Data/Game Files. */\n'
+                            'bool categoryWantsDataFiles(const std::string& category) {\n'
+                            '    const std::string c = lowerAscii(category);\n'
+                            '    return c == "games" || c == "ports";\n'
+                            '}')
 
-          new_categories = '''/** Only Games and Ports may request Data/Game Files. */
-          bool categoryWantsDataFiles(const std::string& category) {
-              const std::string c = lowerAscii(category);
-              return c == "games" || c == "ports";
-          }
-          '''
+          old_draw = ('if (itemEligibleForDataRequest(it)) {\n'
+                      '            // Below Select links when present; same header column when no links.')
+          new_draw = ('if (!state_.linkNavigation && itemEligibleForDataRequest(it)) {\n'
+                      '            // Below Select links when present; same header column when no links.')
 
-          old_draw = '''        if (itemEligibleForDataRequest(it)) {
-              // Below Select links when present; same header column when no links.
-          '''
-          new_draw = '''        if (!state_.linkNavigation && itemEligibleForDataRequest(it)) {
-              // Below Select links when present; same header column when no links.
-          '''
-
-          old_touch = '''            if (itemEligibleForDataRequest(tapItem)) {
-                          const int rby = !tapItem.linkDetails.empty() ? (by + bh + 6) : by;
-          '''
-          new_touch = '''            if (!state_.linkNavigation && itemEligibleForDataRequest(tapItem)) {
-                          const int rby = !tapItem.linkDetails.empty() ? (by + bh + 6) : by;
-          '''
+          old_touch = ('if (itemEligibleForDataRequest(tapItem)) {\n'
+                       '                const int rby = !tapItem.linkDetails.empty() ? (by + bh + 6) : by;')
+          new_touch = ('if (!state_.linkNavigation && itemEligibleForDataRequest(tapItem)) {\n'
+                       '                const int rby = !tapItem.linkDetails.empty() ? (by + bh + 6) : by;')
 
           replacements = [
               ('category whitelist', old_categories, new_categories),
@@ -77,6 +70,8 @@ jobs:
           grep -F 'return c == "games" || c == "ports";' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
           grep -F 'if (!state_.linkNavigation && itemEligibleForDataRequest(it)) {' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
           grep -F 'if (!state_.linkNavigation && itemEligibleForDataRequest(tapItem)) {' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
+          ! grep -F 'c == "emulators"' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
+          ! grep -F 'c == "media"' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
 
       - name: Commit fix to main
         run: |
