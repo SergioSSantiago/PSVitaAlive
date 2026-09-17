@@ -1,0 +1,41 @@
+{
+  "id": "jazz-jackrabbit-2-resurrection",
+  "title_id": "JAZZ20000",
+  "name": "Jazz Jackrabbit 2 Resurrection",
+  "description": "Jazz² Resurrection is reimplementation of the game Jazz Jackrabbit 2 released in 1998.",
+  "long_description": "Jazz² Resurrection is reimplementation of the game Jazz Jackrabbit 2 released in 1998. Supports various versions of the game (Shareware Demo, Holiday Hare '98, The Secret Files and Christmas Chronicles). Also, it partially supports some features of JJ2+ extension and MLLE.",
+  "author_ids": [
+    "deathkiller"
+  ],
+  "category_id": "ports",
+  "subcategory_ids": [
+    "arcade",
+    "platformer",
+    "puzzle"
+  ],
+  "version": "3.8.0",
+  "version_date": "2026-08-22",
+  "requirements": "- Extract libshacccg.suprx from the console firmware to ur0:/data/, shaders are compiled on the console\n- Copy contents of original Jazz Jackrabbit 2 directory to ux0:/data/jazz2/Source/",
+  "size": 5033165,
+  "status": "Verified",
+  "links": [
+    {
+      "type": "Download",
+      "name": "VPK",
+      "url": "https://archive.org/download/jazz-jackrabbit-2-resurrection-ps-vita/Jazz2%20v3.8.0.vpk",
+      "size": 5033165,
+      "recommended": true
+    },
+    {
+      "type": "Game Files",
+      "name": "Game Files",
+      "url": "https://archive.org/download/jazz-jackrabbit-2-resurrection-ps-vita/Game%20Files.zip",
+      "size": 49597645,
+      "extract_path": "ux0:data/"
+    }
+  ],
+  "icon": "https://archive.org/download/jazz-jackrabbit-2-resurrection-ps-vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/jazz-jackrabbit-2-resurrection-ps-vita/shot0.png"
+  ]
+}
