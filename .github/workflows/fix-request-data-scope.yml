@@ -1,0 +1,91 @@
+name: Fix Request Data scope
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-request-data-scope.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply minimal Request Data fix
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('Client PSVitaAlive/source/ui/full_catalog_screen.cpp')
+          text = path.read_text(encoding='utf-8')
+
+          old_categories = '''/** Categories where Data/Game Files requests make sense (catalog category_id). */
+          bool categoryWantsDataFiles(const std::string& category) {
+              std::string c = lowerAscii(category);
+              // ports / games / emulators (+ media). Skip utilities & plugins.
+              return c == "ports" || c == "games" || c == "emulators" || c == "media"
+                  || c.find("port") != std::string::npos
+                  || c.find("game") != std::string::npos
+                  || c.find("emulator") != std::string::npos;
+          }
+          '''
+
+          new_categories = '''/** Only Games and Ports may request Data/Game Files. */
+          bool categoryWantsDataFiles(const std::string& category) {
+              const std::string c = lowerAscii(category);
+              return c == "games" || c == "ports";
+          }
+          '''
+
+          old_draw = '''        if (itemEligibleForDataRequest(it)) {
+              // Below Select links when present; same header column when no links.
+          '''
+          new_draw = '''        if (!state_.linkNavigation && itemEligibleForDataRequest(it)) {
+              // Below Select links when present; same header column when no links.
+          '''
+
+          old_touch = '''            if (itemEligibleForDataRequest(tapItem)) {
+                          const int rby = !tapItem.linkDetails.empty() ? (by + bh + 6) : by;
+          '''
+          new_touch = '''            if (!state_.linkNavigation && itemEligibleForDataRequest(tapItem)) {
+                          const int rby = !tapItem.linkDetails.empty() ? (by + bh + 6) : by;
+          '''
+
+          replacements = [
+              ('category whitelist', old_categories, new_categories),
+              ('detail render guard', old_draw, new_draw),
+              ('detail touch guard', old_touch, new_touch),
+          ]
+
+          for label, old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly 1 match, found {count}; refusing to modify')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Verify patch
+        run: |
+          git diff --check
+          grep -F 'return c == "games" || c == "ports";' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
+          grep -F 'if (!state_.linkNavigation && itemEligibleForDataRequest(it)) {' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
+          grep -F 'if (!state_.linkNavigation && itemEligibleForDataRequest(tapItem)) {' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
+
+      - name: Commit fix to main
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
+          if git diff --cached --quiet; then
+            echo 'No changes required.'
+            exit 0
+          fi
+          git commit -m 'fix(client): restrict Request Data to Games and Ports'
+          git push origin HEAD:main
