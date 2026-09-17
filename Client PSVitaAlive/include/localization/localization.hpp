@@ -386,6 +386,8 @@ enum class TextId {
     PspSetupCancel,
     PspSetupNavHint,
     PspSetupLiveAreaBlocked,
+    // Catalog card install/update badges (appended to preserve existing TextId ordinals)
+    BadgeUpdate,
     Count
 };
 

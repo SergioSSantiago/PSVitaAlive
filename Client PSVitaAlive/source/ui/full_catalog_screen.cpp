@@ -5557,24 +5557,66 @@ void FullCatalogScreen::invalidateInstallStatus(const std::string& titleId) {
     }
 }
 
+namespace {
+bool isInstallBadgeState(const LocalInstallInfo& info) {
+    return info.state == LocalInstallState::Installed
+        || info.state == LocalInstallState::UpdateAvailable
+        || info.state == LocalInstallState::InstalledUnknown;
+}
+
+const char* installBadgeLabel(const LocalInstallInfo& info) {
+    return info.state == LocalInstallState::UpdateAvailable
+        ? ::psvitaalive::L(::psvitaalive::TextId::BadgeUpdate)
+        : ::psvitaalive::L(::psvitaalive::TextId::BadgeInstalled);
+}
+
+int installBadgeWidth(const ::psvitaalive::ui::UiFont* font, const LocalInstallInfo& info, bool compact) {
+    if (!font || !isInstallBadgeState(info)) return 0;
+    const float scale = compact ? 0.48f : 0.50f;
+    const int padX = compact ? 6 : 7;
+    const int minW = compact ? 70 : 76;
+    const int maxW = compact ? 124 : 112;
+    const int tw = ::psvitaalive::ui::uiTextWidth(font, scale, installBadgeLabel(info));
+    return std::max(minW, std::min(maxW, tw + padX * 2));
+}
+} // namespace
+
 void FullCatalogScreen::drawInstallBadge(int x, int y, const LocalInstallInfo& info, bool compact) {
-    if (info.state != LocalInstallState::Installed && info.state != LocalInstallState::UpdateAvailable
-        && info.state != LocalInstallState::InstalledUnknown)
-        return;
+    if (!isInstallBadgeState(info)) return;
+
     const bool upd = (info.state == LocalInstallState::UpdateAvailable);
     const bool unk = (info.state == LocalInstallState::InstalledUnknown);
-    const char* label = upd ? (compact ? "UPD" : "UPDATE")
-                     : (unk ? (compact ? "ON?" : "INSTALLED?") : (compact ? "ON" : "INSTALLED"));
+    const char* label = installBadgeLabel(info);
     const unsigned bg = upd ? RGBA8(0xE0, 0x8A, 0x10, 255)
-                    : (unk ? RGBA8(0x70, 0x78, 0x88, 255) : ACCENT);
-    const unsigned fg = upd ? WHITE : BG;
-    const float scale = compact ? 0.48f : 0.54f;
+                            : (unk ? RGBA8(0x70, 0x78, 0x88, 255) : ACCENT);
+    const unsigned fg = upd ? WHITE : (unk ? WHITE : BG);
+    const float scale = compact ? 0.48f : 0.50f;
+    const int padX = compact ? 6 : 7;
+    const int bh = compact ? 18 : 20;
+    const int bw = installBadgeWidth(&font_, info, compact);
     const int tw = ::psvitaalive::ui::uiTextWidth(&font_, scale, label);
-    const int padX = compact ? 5 : 7;
-    const int bh = compact ? 16 : 18;
-    const int bw = tw + padX * 2;
+    const int innerW = std::max(8, bw - padX * 2);
+
+    // The update badge never disappears: only its outer glow breathes softly.
+    if (upd) {
+        const float pulse = focusPulse();
+        const unsigned a = static_cast<unsigned>(80.f + pulse * 150.f);
+        const unsigned glow = RGBA8(0xFF, 0xB4, 0x38, std::min(255u, a));
+        vita2d_draw_rectangle(x - 1, y - 1, bw + 2, 1, glow);
+        vita2d_draw_rectangle(x - 1, y + bh, bw + 2, 1, glow);
+        vita2d_draw_rectangle(x - 1, y - 1, 1, bh + 2, glow);
+        vita2d_draw_rectangle(x + bw, y - 1, 1, bh + 2, glow);
+    }
+
     vita2d_draw_rectangle(x, y, bw, bh, bg);
-    ::psvitaalive::ui::uiDrawText(&font_, x + padX, y + (compact ? 12 : 13), fg, scale, label);
+    const int baselineY = y + (compact ? 13 : 14);
+    if (tw <= innerW) {
+        ::psvitaalive::ui::uiDrawText(&font_, x + (bw - tw) / 2, baselineY, fg, scale, label);
+    } else {
+        // Long translations scroll inside the badge instead of covering card metadata.
+        drawMarqueeText(&font_, x + padX, baselineY, innerW, fg, scale, label, true,
+                        x + padX, y, x + bw - padX, y + bh);
+    }
 }
 
 void FullCatalogScreen::drawCatalogCard(const CatalogItem&it,int idx,int x,int y,int w,int h,bool focus,int clipL,int clipT,int clipR,int clipB){
@@ -5610,15 +5652,21 @@ void FullCatalogScreen::drawCatalogCard(const CatalogItem&it,int idx,int x,int y
     const bool compact = h < 125;
     int is = compact ? 64 : 80;
     drawImage(!it.icon.empty() ? it.icon : it.cover, "app", x + 10 + ox, y + (compact ? 8 : 10) + oy, is, is);
+
+    // Probe once per card and reserve the top-right status badge before drawing the title.
+    // This keeps localized status text from ever covering the app name.
+    const LocalInstallInfo cardInstall = queryLocalInstall(it);
+    const bool cardHasInstallBadge = isInstallBadgeState(cardInstall);
+    const int cardInstallBadgeW = cardHasInstallBadge
+        ? installBadgeWidth(&font_, cardInstall, compact)
+        : 0;
+
     int tx = x + is + (compact ? 14 : 18) + ox;
     {
         const float nameSc = compact ? (focus ? 0.90f : 0.84f) : (focus ? 0.98f : 0.92f);
-        // Reserve right side for Game/Data Files chips + size so title never underlaps.
-        // Let the title use the full right side unless an actual badge occupies it.
-        // The file badges are drawn lower in the card, so reserving 100+ px here
-        // unnecessarily made titles look cramped.
         const int rightPad = compact ? 10 : 14;
-        const int nameMaxW = std::max(40, (x + ox + ww) - tx - rightPad);
+        const int badgeReserve = cardHasInstallBadge ? (cardInstallBadgeW + 8) : 0;
+        const int nameMaxW = std::max(40, (x + ox + ww) - tx - rightPad - badgeReserve);
         drawMarqueeText(&font_, tx, y + (compact ? 24 : 28) + oy, nameMaxW, WHITE, nameSc, it.name, focus,
                          clipL, clipT, clipR, clipB);
     }
@@ -5685,18 +5733,14 @@ void FullCatalogScreen::drawCatalogCard(const CatalogItem&it,int idx,int x,int y
     // DLC is shown only as the bottom-right folder chip (same as Data/Game Files).
     // Top-right DLC pill removed — it was redundant with the bottom chip.
 
-    // Installed / update badge: bottom-left on icon + top-right of card
-    {
-        const LocalInstallInfo li = queryLocalInstall(it);
-        if (li.state == LocalInstallState::Installed || li.state == LocalInstallState::UpdateAvailable || li.state == LocalInstallState::InstalledUnknown) {
-            // Overlay on icon corner (always visible even when title text is long)
-            drawInstallBadge(x + 10 + ox, y + 9 + oy + is - 18, li, true);
-            const char* lab = (li.state == LocalInstallState::UpdateAvailable) ? "UPD" : "ON";
-            const float sc = 0.56f;
-            const int tw = ::psvitaalive::ui::uiTextWidth(&font_, sc, lab);
-            const int bw = tw + 10;
-            drawInstallBadge(x + ox + ww - bw - 6, y + oy + 6, li, true);
-        }
+    // Single localized install/update badge: top-right only.
+    // The title width above already reserves this exact badge width.
+    if (cardHasInstallBadge) {
+        drawInstallBadge(x + ox + ww - cardInstallBadgeW - 6, y + oy + 6, cardInstall, compact);
+        // A marquee inside the badge can tighten the scissor; restore the card clip.
+        vita2d_enable_clipping();
+        vita2d_set_clip_rectangle(std::max(x + ox, clipL), std::max(y + oy, clipT),
+                                  std::min(x + ox + ww, clipR), std::min(y + oy + hh, clipB));
     }
     (void)idx;
 }
@@ -6036,11 +6080,11 @@ void FullCatalogScreen::drawDetailPanel(int x,int y,int w,int h){
     {
         const LocalInstallInfo li = queryLocalInstall(it);
         if (li.state == LocalInstallState::Installed || li.state == LocalInstallState::UpdateAvailable || li.state == LocalInstallState::InstalledUnknown) {
-            const char* lab = (li.state == LocalInstallState::UpdateAvailable) ? "UPDATE" : "INSTALLED";
-            const float sc = 0.54f;
-            const int tw = ::psvitaalive::ui::uiTextWidth(&font_, sc, lab);
-            const int bw = tw + 14;
+            const int bw = installBadgeWidth(&font_, li, false);
             drawInstallBadge(x + w - bw - 10, y + 12, li, false);
+            // Restore the detail-panel scissor if the localized badge is marqueeing.
+            vita2d_enable_clipping();
+            vita2d_set_clip_rectangle(x, y, x + w, y + h);
             if (!li.installedVersion.empty()) {
                 char iv[48];
                 sceClibSnprintf(iv, sizeof(iv), "Local v%s", li.installedVersion.c_str());

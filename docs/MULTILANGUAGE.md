@@ -387,3 +387,20 @@ Web + Client
 ```
 
 Localization is a client-only presentation layer and must never be implemented by modifying generated catalogs.
+
+## Catalog install/update badges
+
+Catalog cards expose one installation-state badge only, in the top-right corner. The old icon-corner duplicate is intentionally not rendered.
+
+The badge text is part of the client localization layer:
+
+```text
+BADGE_INSTALLED
+BADGE_UPDATE
+```
+
+`Installed` and `InstalledUnknown` both use `BADGE_INSTALLED` on compact catalog cards; the detailed information panel may still explain that the installed version is unknown. `UpdateAvailable` uses `BADGE_UPDATE`.
+
+Card layout reserves the computed badge width before drawing the app title. If either the app title or a localized badge does not fit its allotted width, the existing clipped marquee renderer is used instead of allowing text to overlap other metadata.
+
+The update badge keeps the existing orange warning identity and adds a lightweight breathing outer glow derived from the frame clock. The badge itself never disappears, no texture is allocated, and no additional worker/timer is created.

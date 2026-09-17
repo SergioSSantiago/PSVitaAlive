@@ -267,6 +267,7 @@ const char* LocalizationManager::keyFor(TextId id) {
         case TextId::InstallAllSubtitle: return "INSTALL_ALL_SUBTITLE";
         case TextId::BadgeRecommended: return "BADGE_RECOMMENDED";
         case TextId::BadgeInstalled: return "BADGE_INSTALLED";
+        case TextId::BadgeUpdate: return "BADGE_UPDATE";
         case TextId::MetaAlreadyInstalled: return "META_ALREADY_INSTALLED";
         case TextId::MetaInstalled: return "META_INSTALLED";
         case TextId::MetaXInstall: return "META_X_INSTALL";
