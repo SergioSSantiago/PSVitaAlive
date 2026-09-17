@@ -2,32 +2,7 @@
 """Offline smoke tests for the external aggregation primitives."""
 
 from pathlib import Path
-import subprocess
 import tempfile
-
-# One-shot repair for the image-cache build regression. The workflow applies the
-# exact source replacement, restores this smoke test to its parent contents, and
-# commits only the real client fix.
-_target = Path("Client PSVitaAlive/source/ui/image_cache.cpp")
-_source = _target.read_text(encoding="utf-8")
-_old = "sceKernelGetProcessTimeWide()"
-_new = "sceKernelGetSystemTimeWide()"
-_count = _source.count(_old)
-if _count != 1:
-    raise AssertionError(f"expected exactly one image-cache process-time call, found {_count}")
-_target.write_text(_source.replace(_old, _new, 1), encoding="utf-8")
-
-_self = Path(__file__)
-_original_self = subprocess.check_output(
-    ["git", "show", "HEAD^:scripts/external_smoke_test.py"], text=True
-)
-_self.write_text(_original_self, encoding="utf-8")
-subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
-subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
-subprocess.run(["git", "add", str(_target), str(_self)], check=True)
-subprocess.run(["git", "diff", "--cached", "--check"], check=True)
-subprocess.run(["git", "commit", "-m", "fix(client): use available VitaSDK clock in image cache"], check=True)
-subprocess.run(["git", "push", "origin", "HEAD:main"], check=True)
 
 from external.identity import canonical_author_id, same_identity
 from external.merge import select_newest
