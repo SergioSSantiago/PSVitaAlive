@@ -41,7 +41,10 @@ Logos and backgrounds under `web/assets/`. Styling under `web/css/` (`game.css`,
 
 ## Tooling
 
-`web/tools/app-generator/` — helper UI to draft app JSON for contributors.
+- `web/tools/app-generator/` — helper UI to draft app JSON for contributors.
+- `web/tools/mascot-generator/` — browser-only mascot package editor: PNG animation import, PS Vita preview, manifest validation and ready ZIP export.
+
+Both tools are static and compatible with GitHub Pages; they do not require a backend.
 
 ## News
 
@@ -50,3 +53,7 @@ Repo-root [`news.txt`](../news.txt) drives the in-client News modal (id / title 
 ## App generator
 
 [`tools/app-generator/`](tools/app-generator/) — form UI for contributors: auto Internal ID, size units, link types including **Plugin** (`section` / `line` / `extract_path`), `extract_path` for ZIP-oriented types.
+
+## Mascot generator
+
+[`tools/mascot-generator/`](tools/mascot-generator/) — create/edit the planned protection-mode `mascot.json` format, import PNG frames or an existing mascot ZIP, simulate Idle/Run movement on a 960 × 544 canvas, validate 100 × 100 frames, and export `<id>/mascot.json` + PNG assets as a ready ZIP. See the tool's own README for the schema and compatibility rules.
