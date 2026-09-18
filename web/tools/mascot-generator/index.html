@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="../../css/main.css">
     <link rel="stylesheet" href="mascot-generator.css">
     <link rel="stylesheet" href="sprite-sheet-splitter.css">
+    <link rel="stylesheet" href="sprite-sheet-background-removal.css">
 </head>
 <body>
 <header class="site-header">
@@ -30,7 +31,7 @@
         <div class="tool-hero">
             <span class="hero-label">DEVELOPER TOOL</span>
             <h1>Mascot Generator &amp; Preview</h1>
-            <p>Create PSVitaAlive screen-protection mascots without editing files manually. Import individual PNG frames or split a transparent Sprite Sheet directly in the browser, build Idle and Run animations, tune movement parameters, preview the exact 960 × 544 Vita play area, validate the package and export a ready-to-use ZIP.</p>
+            <p>Create PSVitaAlive screen-protection mascots without editing files manually. Import individual PNG frames or split a Sprite Sheet directly in the browser, including sheets with a solid-color background, build Idle and Run animations, tune movement parameters, preview the exact 960 × 544 Vita play area, validate the package and export a ready-to-use ZIP.</p>
             <div class="tool-actions">
                 <label class="button secondary-button file-button">Import mascot ZIP<input id="import-zip" type="file" accept=".zip,application/zip"></label>
                 <label class="button secondary-button file-button">Import mascot.json<input id="import-json" type="file" accept=".json,application/json"></label>
@@ -106,7 +107,7 @@
                 <section class="form-card splitter-card" id="sprite-sheet-splitter">
                     <div class="card-heading">
                         <h2>3. Sprite Sheet Splitter <span class="optional-pill">OPTIONAL</span></h2>
-                        <p>Only have a Sprite Sheet? Load a transparent PNG and this tool will detect each connected sprite, order them by rows, convert them to crisp square frames and send the selected frames directly into any Idle or Run animation.</p>
+                        <p>Only have a Sprite Sheet? Load a PNG with transparency or a solid-color background. The tool can remove a sampled background locally, detect each connected sprite, order them by rows, convert them to crisp square frames and send the selected frames directly into any Idle or Run animation.</p>
                     </div>
 
                     <div class="splitter-actions">
@@ -125,6 +126,39 @@
                             <label for="sheet-size">Output frame size</label>
                             <div class="input-with-unit"><input id="sheet-size" type="number" min="1" max="100" step="1" value="64"><span>px</span></div>
                             <small>Each detected sprite is centered inside a square transparent canvas. 64 × 64 is recommended for pixel-art mascots.</small>
+                        </div>
+                    </div>
+
+                    <div class="background-removal">
+                        <div class="background-removal-head">
+                            <div>
+                                <label class="background-removal-title" for="sheet-bg-enable"><input id="sheet-bg-enable" type="checkbox"> Remove solid background</label>
+                                <p>For Sprite Sheets without transparency. Enable this, then tap or click <strong>once</strong> on a clean part of the background. A small 5 × 5 area around that point is sampled automatically.</p>
+                            </div>
+                            <span class="background-badge">ONE-TAP SAMPLE</span>
+                        </div>
+
+                        <div id="sheet-bg-tools" class="background-tools" hidden>
+                            <div class="background-preview-shell">
+                                <div class="background-preview-head"><span>Tap the background color</span><span id="sheet-bg-preview-mode">original preview</span></div>
+                                <div class="background-preview-scroll"><canvas id="sheet-bg-preview" width="1" height="1" aria-label="Background removal preview. Tap a solid background area to sample its color."></canvas></div>
+                            </div>
+
+                            <div class="background-controls">
+                                <div class="field">
+                                    <label for="sheet-bg-tolerance">Color tolerance</label>
+                                    <div class="input-with-unit"><input id="sheet-bg-tolerance" type="number" min="0" max="255" step="1" value="24"><span>RGB</span></div>
+                                    <small>Higher values also remove colors farther from the sampled background. Start low and increase only if halos remain.</small>
+                                </div>
+                                <label class="background-option"><input id="sheet-bg-edge-only" type="checkbox" checked> Remove matching background connected to image edges only</label>
+                            </div>
+
+                            <div class="background-sample-row">
+                                <div class="background-sample-info"><span id="sheet-bg-swatch" class="background-swatch empty"></span><span>Sampled color: <strong id="sheet-bg-color">No color sampled</strong></span></div>
+                                <button id="sheet-bg-reset" class="small-button" type="button">Reset background sample</button>
+                            </div>
+                            <div id="sheet-bg-status" class="background-status info" aria-live="polite"></div>
+                            <div class="background-hint"><strong>Safer default:</strong> edge-connected mode avoids deleting a similar color inside the character. If the solid background remains trapped inside fully enclosed holes, disable that option to key out every matching pixel.</div>
                         </div>
                     </div>
 
@@ -192,7 +226,7 @@
                             <button id="sheet-add-selected" class="button primary-button" type="button">Add selected to animation</button>
                             <button id="sheet-download-zip" class="button secondary-button" type="button">Download selected sprites ZIP</button>
                         </div>
-                        <div class="splitter-note"><strong>Detection method:</strong> non-transparent pixels are grouped using 4-way connected components, filtered by size, grouped top-to-bottom into rows and sorted left-to-right. Output uses nearest-neighbour scaling to preserve pixel art.</div>
+                        <div class="splitter-note"><strong>Detection method:</strong> the splitter always receives a transparent PNG. If solid-background cleanup is enabled, the page first creates that transparent copy locally. Non-transparent pixels are then grouped using 4-way connected components, filtered by size, grouped top-to-bottom into rows and sorted left-to-right. Output uses nearest-neighbour scaling to preserve pixel art.</div>
                     </div>
                 </section>
 
@@ -281,6 +315,7 @@
 
 <footer class="site-footer"><div class="container">PSVitaAlive Store — Free and open PlayStation Vita homebrew catalog.</div></footer>
 <script src="mascot-generator.js"></script>
+<script src="sprite-sheet-background-removal.js"></script>
 <script src="sprite-sheet-splitter.js"></script>
 </body>
 </html>
