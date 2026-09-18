@@ -13,17 +13,17 @@
     "arcade",
     "racing"
   ],
-  "version": "1.7.1",
-  "version_date": "2026-09-10",
+  "version": "1.7.2",
+  "version_date": "2026-09-17",
   "requirements": "- No Data",
-  "size": 4508877,
+  "size": 4718592,
   "status": "Verified",
   "links": [
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://archive.org/download/golden-balloon-psvita/GoldenBalloon-Vita-v1.7.1.vpk",
-      "size": 4508877,
+      "url": "https://archive.org/download/golden-balloon-psvita/GoldenBalloon-Vita-v1.7.2.vpk",
+      "size": 4718592,
       "recommended": true
     },
     {
