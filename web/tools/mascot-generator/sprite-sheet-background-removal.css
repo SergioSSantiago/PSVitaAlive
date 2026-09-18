@@ -1,0 +1,168 @@
+/* Optional solid-background cleanup before Sprite Sheet detection */
+
+.background-removal {
+    margin-top: 16px;
+    padding: 16px;
+    border: 1px solid #343434;
+    border-radius: 12px;
+    background: rgba(0,0,0,.22);
+}
+.background-removal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.background-removal-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #fff;
+    font-weight: 800;
+}
+.background-removal-title input { accent-color: var(--accent); }
+.background-removal p {
+    margin: 7px 0 0;
+    color: var(--text-secondary);
+    font-size: .86rem;
+    line-height: 1.5;
+}
+.background-badge {
+    padding: 4px 8px;
+    border: 1px solid #444;
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-size: .64rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+}
+.background-tools { margin-top: 14px; }
+.background-preview-shell {
+    border: 1px solid #343434;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #090909;
+}
+.background-preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 12px;
+    border-bottom: 1px solid #333;
+    color: #ddd;
+    font-size: .78rem;
+    font-weight: 700;
+}
+.background-preview-head span:last-child {
+    color: var(--text-secondary);
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+.background-preview-scroll {
+    max-height: 400px;
+    overflow: auto;
+    padding: 12px;
+    text-align: center;
+    background:
+        linear-gradient(45deg, #151515 25%, transparent 25%),
+        linear-gradient(-45deg, #151515 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #151515 75%),
+        linear-gradient(-45deg, transparent 75%, #151515 75%),
+        #101010;
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
+#sheet-bg-preview {
+    display: inline-block;
+    max-width: 100%;
+    height: auto;
+    image-rendering: pixelated;
+    cursor: crosshair;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.background-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+}
+.background-option {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(0,0,0,.32);
+    color: #ddd;
+    font-size: .84rem;
+    font-weight: 700;
+}
+.background-option input { accent-color: var(--accent); }
+.background-sample-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+.background-sample-info {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: .82rem;
+}
+.background-swatch {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #666;
+    border-radius: 7px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.35);
+}
+.background-swatch.empty {
+    background: repeating-conic-gradient(#1b1b1b 0 25%, #2a2a2a 0 50%) 50% / 10px 10px !important;
+}
+#sheet-bg-color {
+    color: #ddd;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.background-status {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: rgba(0,0,0,.3);
+    color: var(--text-secondary);
+    font-size: .82rem;
+    line-height: 1.45;
+}
+.background-status.info { border-color: #5c9dff; color: #9ec1ff; }
+.background-status.ok { border-color: var(--accent); color: var(--accent); }
+.background-status.warning { border-color: #d8b74b; color: #f0d77a; }
+.background-status.error { border-color: #ff5c5c; color: #ff9a9a; }
+.background-hint {
+    margin-top: 10px;
+    color: var(--text-secondary);
+    font-size: .76rem;
+    line-height: 1.45;
+}
+.background-hint strong { color: #ddd; }
+
+@media (max-width: 700px) {
+    .background-controls { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+    .background-sample-row { align-items: stretch; flex-direction: column; }
+    .background-sample-row .small-button { width: 100%; }
+}
