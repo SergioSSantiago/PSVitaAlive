@@ -111,6 +111,8 @@ struct AppSettingsData {
     std::string uiFontFile;
     /** Global UI text size multiplier in percent (50–150). 100 = default. */
     int uiFontScalePct = 100;
+    /** Protection mascot: "random" (default), "off", "internal:<id>" or "user:<id>". */
+    std::string mascotSelection = "random";
 };
 
 class AppSettings {
