@@ -6,7 +6,6 @@
     "description": "DKR64 Vita Port of Golden Ballon",
     "long_description": "A PS Vita port of Golden Balloon, itself a native and browser source port of the 1997 Nintendo 64 kart racer, built on the community decompilation.\nNot an emulator: the game is cross-compiled for the Vita and runs from a ROM you already own.",
     "author_ids": [
-      "claude-ai",
       "zm2283145"
     ],
     "category_id": "ports",
@@ -52,7 +51,6 @@
     "description": "This is a wrapper/port of Shadow Guardian HD for the PS Vita.",
     "long_description": "The port works by loading the official Android ARMv7 libshadowguardian.so executable in memory, resolving its imports with custom stubs, and patching it to properly run on the PS Vita using a fake JNI environment and translating OpenGL ES 2.0 calls to vitaGL.",
     "author_ids": [
-      "claude-ai",
       "metalsyntax"
     ],
     "category_id": "ports",
@@ -440,7 +438,6 @@
     "description": "Native PS Vita wrapper/port of Asphalt 5, originally published by Gameloft for Android, built on soloader-boilerplate.",
     "long_description": "Asphalt 5 is Gameloft's arcade racing game, originally released for Android as Asphalt-5-HD-v3.4.1.apk. This port runs the compiled native library (libasphalt5.so) from the Android release directly on the PS Vita's ARM Cortex-A9 processor, using a dynamic loader (soloader) and an Android environment emulation layer (FalsoJNI), with vitaGL providing the GLES 1.1 fixed-function rendering backend.",
     "author_ids": [
-      "claude-ai",
       "metalsyntax"
     ],
     "category_id": "ports",
