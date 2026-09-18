@@ -156,24 +156,69 @@
         });
     }
 
+    function canvasToPngBytes(image, width, height) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const canvasContext = canvas.getContext('2d');
+        canvasContext.clearRect(0, 0, width, height);
+        // Mascot assets are usually pixel-art sprites. Keep resize deterministic and crisp.
+        canvasContext.imageSmoothingEnabled = false;
+        canvasContext.drawImage(image, 0, 0, width, height);
+        return new Promise((resolve, reject) => {
+            canvas.toBlob(async blob => {
+                if (!blob) {
+                    reject(new Error('Could not normalize the PNG frame.'));
+                    return;
+                }
+                resolve(new Uint8Array(await blob.arrayBuffer()));
+            }, 'image/png');
+        });
+    }
+
     async function frameFromBytes(name, bytes, allowMissing = false) {
         if (!bytes) {
-            if (allowMissing) return { uid: uid(), name: sanitizeFilename(name), bytes: null, url: '', image: null, width: 0, height: 0, missing: true };
+            if (allowMissing) return {
+                uid: uid(), name: sanitizeFilename(name), bytes: null, url: '', image: null,
+                width: 0, height: 0, sourceWidth: 0, sourceHeight: 0, normalized: false, missing: true
+            };
             throw new Error(`Missing image data for ${name}`);
         }
         if (!isPng(bytes)) throw new Error(`${name} is not a PNG file.`);
-        const blob = new Blob([bytes], { type: 'image/png' });
-        const url = URL.createObjectURL(blob);
+
+        let outputBytes = bytes;
+        let blob = new Blob([outputBytes], { type: 'image/png' });
+        let url = URL.createObjectURL(blob);
         try {
-            const image = await loadImageFromUrl(url);
+            let image = await loadImageFromUrl(url);
+            const sourceWidth = image.naturalWidth;
+            const sourceHeight = image.naturalHeight;
+            if (sourceWidth <= 0 || sourceHeight <= 0) throw new Error(`${name} has invalid PNG dimensions.`);
+
+            let normalized = false;
+            if (sourceWidth > SPRITE_W || sourceHeight > SPRITE_H) {
+                const scale = Math.min(SPRITE_W / sourceWidth, SPRITE_H / sourceHeight);
+                const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+                const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+                outputBytes = await canvasToPngBytes(image, targetWidth, targetHeight);
+                URL.revokeObjectURL(url);
+                blob = new Blob([outputBytes], { type: 'image/png' });
+                url = URL.createObjectURL(blob);
+                image = await loadImageFromUrl(url);
+                normalized = true;
+            }
+
             return {
                 uid: uid(),
                 name: sanitizeFilename(name),
-                bytes,
+                bytes: outputBytes,
                 url,
                 image,
                 width: image.naturalWidth,
                 height: image.naturalHeight,
+                sourceWidth,
+                sourceHeight,
+                normalized,
                 missing: false
             };
         } catch (error) {
@@ -279,7 +324,9 @@
                 animation.frames.forEach(frame => {
                     if (frame.missing || !frame.bytes) errors.push(`${label} is missing frame file ${frame.name}.`);
                     if (frame.bytes && !isPng(frame.bytes)) errors.push(`${frame.name} is not a valid PNG.`);
-                    if (frame.bytes && (frame.width !== 100 || frame.height !== 100)) errors.push(`${frame.name} is ${frame.width}×${frame.height}; version 1 requires 100×100.`);
+                    if (frame.bytes && (frame.width <= 0 || frame.height <= 0)) errors.push(`${frame.name} has invalid dimensions.`);
+                    if (frame.bytes && (frame.width > SPRITE_W || frame.height > SPRITE_H)) errors.push(`${frame.name} exceeds the 100×100 asset limit after normalization.`);
+                    if (frame.normalized) warnings.push(`${frame.name} was normalized from ${frame.sourceWidth}×${frame.sourceHeight} to ${frame.width}×${frame.height} without changing its aspect ratio.`);
                 });
             });
         }
@@ -319,7 +366,9 @@
                 ? `<img src="${escapeHtml(frame.url)}" alt="${escapeHtml(frame.name)}">`
                 : `<div class="frame-thumb missing">Missing<br>${escapeHtml(frame.name)}</div>`;
             const thumbWrap = frame.image && frame.url ? `<div class="frame-thumb">${thumb}</div>` : thumb;
-            const dimensions = frame.bytes ? `${frame.width}×${frame.height}` : 'not loaded';
+            const dimensions = frame.bytes
+                ? (frame.normalized ? `${frame.width}×${frame.height} · normalized from ${frame.sourceWidth}×${frame.sourceHeight}` : `${frame.width}×${frame.height}`)
+                : 'not loaded';
             return `<div class="frame-card" draggable="true" data-state="${state}" data-animation="${index}" data-frame="${frameIndex}">
                 ${thumbWrap}
                 <div class="frame-name">${escapeHtml(frame.name)}</div>
@@ -330,7 +379,7 @@
                     <button type="button" class="danger" data-action="frame-remove" title="Remove">×</button>
                 </div>
             </div>`;
-        }).join('') : '<div class="empty-animations">No frames yet. Drop or choose 100×100 PNG files below.</div>';
+        }).join('') : '<div class="empty-animations">No frames yet. Drop or choose PNG files below. Smaller sprites are kept as-is; larger ones are normalized to fit 100×100.</div>';
 
         return `<article class="animation-card" data-state="${state}" data-animation="${index}">
             <div class="animation-card-header">
@@ -750,15 +799,29 @@
         const animation = currentAnimation();
         const frame = animation?.frames?.[runtime.frameIndex % Math.max(1, animation.frames.length)];
         if (!frame?.image || frame.missing) return;
+
+        // 100×100 is the logical mascot area, not a required source-image size.
+        // Scale the frame until one side fills the logical area, preserve aspect ratio,
+        // then center the other side. This lets 64×64 sprites fill the full 100×100 area
+        // while rectangular sprites remain undistorted.
+        const sourceWidth = Math.max(1, frame.width || frame.image.naturalWidth || 1);
+        const sourceHeight = Math.max(1, frame.height || frame.image.naturalHeight || 1);
+        const scale = Math.min(SPRITE_W / sourceWidth, SPRITE_H / sourceHeight);
+        const drawWidth = sourceWidth * scale;
+        const drawHeight = sourceHeight * scale;
+        const offsetX = (SPRITE_W - drawWidth) * 0.5;
+        const offsetY = (SPRITE_H - drawHeight) * 0.5;
+
         const nativeRight = project.native_facing === 'right';
         const mirror = nativeRight !== runtime.facingRight;
         ctx.save();
+        ctx.imageSmoothingEnabled = false;
         if (mirror) {
             ctx.translate(runtime.x + SPRITE_W, runtime.y);
             ctx.scale(-1, 1);
-            ctx.drawImage(frame.image, 0, 0, SPRITE_W, SPRITE_H);
+            ctx.drawImage(frame.image, offsetX, offsetY, drawWidth, drawHeight);
         } else {
-            ctx.drawImage(frame.image, runtime.x, runtime.y, SPRITE_W, SPRITE_H);
+            ctx.drawImage(frame.image, runtime.x + offsetX, runtime.y + offsetY, drawWidth, drawHeight);
         }
         ctx.restore();
     }
@@ -817,7 +880,8 @@
             name: String(item?.name || ''),
             frame_ms: Number(item?.frame_ms) || 0,
             frames: Array.isArray(item?.frames) ? item.frames.map(name => ({
-                uid: uid(), name: sanitizeFilename(name), bytes: null, url: '', image: null, width: 0, height: 0, missing: true
+                uid: uid(), name: sanitizeFilename(name), bytes: null, url: '', image: null,
+                width: 0, height: 0, sourceWidth: 0, sourceHeight: 0, normalized: false, missing: true
             })) : []
         };
     }
