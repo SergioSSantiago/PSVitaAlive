@@ -128,6 +128,54 @@ InstallDetectResult decideInstallState(
         return out;
     }
 
+    // Phase-1 compatibility for PSVitaAlive-managed installs.
+    // Current receipts are written with the catalog version but without a live
+    // fingerprint digest. queryLocalInstall therefore cannot mark them as a
+    // fingerprint match once the catalog version changes. While the catalog has
+    // no update_detection metadata (meta.present == false), the receipt is still
+    // positive evidence of the last version installed by PSVitaAlive.
+    //
+    // Once catalog fingerprints are available (meta.present == true), this
+    // compatibility path is disabled and the strict verified-receipt/fingerprint
+    // rules above/below take over again.
+    if (receipt.present && !receipt.fingerprintMatchesInstalled &&
+        !meta.present && !receipt.catalogVersion.empty() && !catalogVersion.empty()) {
+
+        // If APP_VER is actually reliable and already says current/newer, prefer
+        // that evidence over a potentially stale receipt. Never offer a downgrade.
+        if (sfo.hasAppVer && !sfo.appVer.empty() && !isUnreliableSfoVersion(sfo.appVer)) {
+            const int sfoCmp = compareNormalizedVersions(sfo.appVer, catalogVersion);
+            if (sfoCmp == 0) {
+                out.state = InstallDetectState::Installed;
+                out.source = "sfo";
+                out.installedVersion = sfo.appVer;
+                return out;
+            }
+            if (sfoCmp > 0) {
+                out.state = InstallDetectState::InstalledUnknown;
+                out.source = "sfo";
+                out.installedVersion = sfo.appVer;
+                return out;
+            }
+        }
+
+        out.source = "receipt";
+        out.installedVersion = receipt.catalogVersion;
+        const int cmp = compareNormalizedVersions(receipt.catalogVersion, catalogVersion);
+        if (cmp < 0) {
+            out.state = InstallDetectState::UpdateAvailable;
+            return out;
+        }
+        if (cmp == 0) {
+            out.state = InstallDetectState::Installed;
+            return out;
+        }
+
+        // Receipt newer than catalog: do not offer an older package.
+        out.state = InstallDetectState::InstalledUnknown;
+        return out;
+    }
+
     if (fingerprint.matchedCurrent) {
         out.state = InstallDetectState::Installed;
         out.source = "fingerprint";
