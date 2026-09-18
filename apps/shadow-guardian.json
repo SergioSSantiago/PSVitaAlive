@@ -1,0 +1,43 @@
+{
+  "id": "shadow-guardian",
+  "title_id": "PSVSGHD01",
+  "name": "Shadow Guardian",
+  "description": "This is a wrapper/port of Shadow Guardian HD for the PS Vita.",
+  "long_description": "The port works by loading the official Android ARMv7 libshadowguardian.so executable in memory, resolving its imports with custom stubs, and patching it to properly run on the PS Vita using a fake JNI environment and translating OpenGL ES 2.0 calls to vitaGL.",
+  "author_ids": [
+    "claude-ai",
+    "metalsyntax"
+  ],
+  "category_id": "ports",
+  "subcategory_ids": [
+    "action",
+    "fps",
+    "shooter",
+    "strategy"
+  ],
+  "version": "1.2.5",
+  "version_date": "2026-09-16",
+  "requirements": "- Install the kubridge and fd_fix plugins on your PS Vita.\n- Install libshacccg.suprx, if you don't have it already.",
+  "size": 1153434,
+  "status": "Verified",
+  "links": [
+    {
+      "type": "Download",
+      "name": "VPK",
+      "url": "https://archive.org/download/shadow-guardian-ps-vita/shadowguardian%20v1.2.5.vpk",
+      "size": 1153434,
+      "recommended": true
+    },
+    {
+      "type": "Game Files",
+      "name": "Game Files",
+      "url": "https://archive.org/download/shadow-guardian-ps-vita/Game%20Files.zip",
+      "size": 598946611,
+      "extract_path": "ux0:data/"
+    }
+  ],
+  "icon": "https://archive.org/download/shadow-guardian-ps-vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/shadow-guardian-ps-vita/shot0.png"
+  ]
+}
