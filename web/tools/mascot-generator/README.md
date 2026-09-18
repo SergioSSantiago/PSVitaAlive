@@ -21,7 +21,9 @@ web/tools/mascot-generator/
 - Create multiple Idle and Run animations.
 - Reorder frames with buttons or drag and drop.
 - Configure frame timing, Idle range, Run timeout and movement speed.
-- Validate required fields, PNG dimensions, duplicate frame names and missing assets.
+- Validate required fields, PNG assets, duplicate frame names and missing assets.
+- Keep PNGs at or below 100 × 100 unchanged.
+- Automatically normalize oversized PNGs down to fit within 100 × 100 while preserving aspect ratio.
 - Preview the mascot inside a 960 × 544 PS Vita simulation.
 - Simulate automatic Idle/Run transitions, diagonal movement and horizontal sprite mirroring.
 - Force Idle or Run in the preview for testing.
@@ -76,7 +78,10 @@ The internal mascot ID is the ZIP/folder name and is intentionally not duplicate
 - `schema_version` is `1`.
 - One mascot per package.
 - PNG frames only.
-- Every frame must be exactly `100 × 100` pixels.
+- `width: 100` and `height: 100` describe the logical mascot display area, not a mandatory source-PNG resolution.
+- Frames at or below `100 × 100` are kept byte-for-byte unchanged (for example `64 × 64`).
+- Frames larger than the logical area are automatically normalized down so neither dimension exceeds 100 px, preserving aspect ratio.
+- During preview, every frame is fitted inside the logical `100 × 100` area and scaled as large as possible without stretching; for example, a `64 × 64` frame renders as `100 × 100`, while a `64 × 48` frame renders as `100 × 75` and is centered.
 - `native_facing` is `left` or `right`.
 - At least one Idle animation and one Run animation are required.
 - Every animation requires a positive `frame_ms` and at least one frame.
@@ -102,7 +107,8 @@ The simulation uses the same design targets documented for the future client imp
 ```text
 screen:       960 × 544
 safe margin:  16 px
-sprite:       100 × 100
+mascot area:  100 × 100
+source PNG:   flexible; ≤100 kept, >100 normalized down
 states:       Idle / Run
 movement:     normalized vector movement
 orientation:  horizontal mirror based on native_facing
