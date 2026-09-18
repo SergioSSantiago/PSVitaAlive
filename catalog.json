@@ -79,6 +79,11 @@
         "url": "https://archive.org/download/shadow-guardian-ps-vita/Game%20Files.zip",
         "size": 598946611,
         "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "GitHub",
+        "url": "https://github.com/MetalSyntax/Shadow-Guardian-vita"
       }
     ],
     "icon": "https://archive.org/download/shadow-guardian-ps-vita/icon0.png",
