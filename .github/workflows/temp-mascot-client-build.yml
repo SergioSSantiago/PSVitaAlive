@@ -1,0 +1,27 @@
+name: Temporary mascot client build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/temp-mascot-client-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: vitasdk/vitasdk:2026.08
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show VitaSDK toolchain
+        run: |
+          echo "VITASDK=$VITASDK"
+          arm-vita-eabi-g++ --version
+          cmake --version
+      - name: Configure
+        run: cmake -S "Client PSVitaAlive" -B /tmp/psvitaalive-build -DCMAKE_BUILD_TYPE=Release
+      - name: Build client VPK
+        run: cmake --build /tmp/psvitaalive-build -j2
