@@ -394,3 +394,12 @@ PSP_SETUP_CANCEL=Cancelar
 PSP_SETUP_NAV_HINT=I/D elegir  X confirmar  O cancelar
 PSP_SETUP_LIVEAREA_BLOCKED=LiveArea necesita NoPspEmuDrm (kern + user). Instálalo con AutoPlugin II, o elige Adrenaline.
 PROTECTION_PRESS_ANY_BUTTON=Pulsa cualquier botón para volver
+
+# Ajustes de mascota del protector
+MASCOT=Mascota
+MASCOT_RANDOM=Aleatoria
+MASCOT_OFF=Desactivada
+HINT_MASCOT=Aleatoria, desactivada, interna o del usuario
+INFO_MASCOT_1=Aleatoria elige una mascota cada vez que se abre el protector.
+INFO_MASCOT_2=Las mascotas internas y del usuario aparecen en una sola lista.
+INFO_MASCOT_3=Mascotas del usuario: ux0:data/psvitaalive/mascots/

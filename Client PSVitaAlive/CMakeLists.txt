@@ -61,6 +61,7 @@ set(SOURCES
   source/ui/ui_types.cpp
   source/ui/image_cache.cpp
   source/ui/ui_font.cpp
+  source/ui/mascot_manager.cpp
   source/ui/full_catalog_screen.cpp
   source/localization/language.cpp
   source/localization/localization.cpp
@@ -209,6 +210,7 @@ add_custom_command(
     -a "../assets/ui=ui"
     -a "../assets/lang=lang"
     -a "../assets/font=font"
+    -a "../assets/mascots=mascots"
     -a "updater_eboot.bin=updater/eboot.bin"
     -a "updater_param.sfo=updater/param.sfo"
     -a "psm_runtime_driver.skprx=psm_runtime_driver.skprx"
@@ -225,6 +227,7 @@ add_custom_command(
     "${CMAKE_SOURCE_DIR}/assets/ui"
     "${CMAKE_SOURCE_DIR}/assets/lang"
     "${CMAKE_SOURCE_DIR}/assets/font"
+    "${CMAKE_SOURCE_DIR}/assets/mascots"
   COMMENT "Building vpk ${PROJECT_NAME}"
   VERBATIM
 )

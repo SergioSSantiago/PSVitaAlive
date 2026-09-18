@@ -34,6 +34,23 @@ bool containsBool(const std::string& json, const char* key, bool& out) {
     return false;
 }
 
+bool validMascotSelection(const std::string& value) {
+    if (value == "random" || value == "off") return true;
+    const char* prefix = nullptr;
+    if (value.rfind("internal:", 0) == 0) prefix = "internal:";
+    else if (value.rfind("user:", 0) == 0) prefix = "user:";
+    else return false;
+    const size_t start = std::strlen(prefix);
+    if (value.size() <= start || value.size() > 96) return false;
+    for (size_t i = start; i < value.size(); ++i) {
+        const char c = value[i];
+        const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                        (c >= '0' && c <= '9') || c == '-' || c == '_';
+        if (!ok) return false;
+    }
+    return true;
+}
+
 } // namespace
 
 const char* AppSettings::toString(InstallMethod m) { switch (m) { case InstallMethod::Direct: return "direct"; case InstallMethod::Bgdl: return "bgdl"; default: return "auto"; } }
@@ -103,7 +120,7 @@ AppSettingsData AppSettings::load() {
     AppSettingsData data;
     SceUID fd = sceIoOpen(kConfigPath, SCE_O_RDONLY, 0);
     if (fd < 0) { LocalizationManager::instance().initialize(data); return data; }
-    char buf[1280]; const int n = sceIoRead(fd, buf, sizeof(buf) - 1); sceIoClose(fd);
+    char buf[2048]; const int n = sceIoRead(fd, buf, sizeof(buf) - 1); sceIoClose(fd);
     if (n <= 0) { LocalizationManager::instance().initialize(data); return data; }
     buf[n] = '\0'; const std::string json(buf); std::string v;
     if (containsKey(json, "install_method", v)) data.installMethod = parseInstallMethod(v);
@@ -114,6 +131,7 @@ AppSettingsData AppSettings::load() {
     if (containsKey(json, "language", v) && !v.empty()) data.language = v;
     if (containsKey(json, "ui_font_style", v)) data.uiFontStyle = parseUiFontStyle(v);
     if (containsKey(json, "ui_font_file", v)) data.uiFontFile = v;
+    if (containsKey(json, "mascot_selection", v) && validMascotSelection(v)) data.mascotSelection = v;
     {
         const std::string pattern = "\"ui_font_scale\"";
         size_t p = json.find(pattern);
@@ -143,20 +161,22 @@ AppSettingsData AppSettings::load() {
     const bool hasStartupUpdateCheck = containsBool(json, "startup_update_check", b); if (hasStartupUpdateCheck) data.startupUpdateCheck = b;
     if (!hasStartupPluginDetection || !hasStartupUpdateCheck || !hasThemeSetupDone) save(data);
     LocalizationManager::instance().initialize(data);
-    sceClibPrintf("[AppSettings] loaded theme=%s language=%s psp_setup_done=%d\n", toString(data.colorTheme), data.language.c_str(), data.pspSetupDone ? 1 : 0);
+    sceClibPrintf("[AppSettings] loaded theme=%s language=%s psp_setup_done=%d mascot=%s\n",
+                  toString(data.colorTheme), data.language.c_str(), data.pspSetupDone ? 1 : 0, data.mascotSelection.c_str());
     return data;
 }
 
 bool AppSettings::save(const AppSettingsData& data) {
     StorageManager st; st.createDirectories(StorageManager::BASE_DIR);
-    char json[1792];
+    char json[2304];
     sceClibSnprintf(json, sizeof(json),
-        "{\n  \"install_method\": \"%s\",\n  \"psp_target\": \"%s\",\n  \"psp_media_format\": \"%s\",\n  \"color_theme\": \"%s\",\n  \"warn_missing_plugins\": %s,\n  \"prompt_image_warmup\": %s,\n  \"theme_setup_done\": %s,\n  \"psp_setup_done\": %s,\n  \"startup_plugin_detection\": %s,\n  \"startup_update_check\": %s,\n  \"language_mode\": \"%s\",\n  \"language\": \"%s\",\n  \"ui_font_style\": \"%s\",\n  \"ui_font_file\": \"%s\",\n  \"ui_font_scale\": %d\n}\n",
+        "{\n  \"install_method\": \"%s\",\n  \"psp_target\": \"%s\",\n  \"psp_media_format\": \"%s\",\n  \"color_theme\": \"%s\",\n  \"warn_missing_plugins\": %s,\n  \"prompt_image_warmup\": %s,\n  \"theme_setup_done\": %s,\n  \"psp_setup_done\": %s,\n  \"startup_plugin_detection\": %s,\n  \"startup_update_check\": %s,\n  \"language_mode\": \"%s\",\n  \"language\": \"%s\",\n  \"ui_font_style\": \"%s\",\n  \"ui_font_file\": \"%s\",\n  \"ui_font_scale\": %d,\n  \"mascot_selection\": \"%s\"\n}\n",
         toString(data.installMethod), toString(data.pspTarget), toString(data.pspMediaFormat), toString(data.colorTheme),
         data.warnMissingPlugins ? "true" : "false", data.promptImageWarmup ? "true" : "false", data.themeSetupDone ? "true" : "false",
         data.pspSetupDone ? "true" : "false",
         data.startupPluginDetection ? "true" : "false", data.startupUpdateCheck ? "true" : "false", toString(data.languageMode), data.language.c_str(),
-        toString(data.uiFontStyle), data.uiFontFile.c_str(), data.uiFontScalePct);
+        toString(data.uiFontStyle), data.uiFontFile.c_str(), data.uiFontScalePct,
+        validMascotSelection(data.mascotSelection) ? data.mascotSelection.c_str() : "random");
     SceUID fd = sceIoOpen(kConfigPath, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0666); if (fd < 0) return false;
     const int wr = sceIoWrite(fd, json, std::strlen(json)); sceIoClose(fd);
     sceClibPrintf("[AppSettings] saved psp_setup_done=%s target=%s media=%s\n",

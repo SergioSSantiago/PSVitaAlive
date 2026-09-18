@@ -85,3 +85,23 @@ Modo protección
 ## Nota
 
 El modo reduce contenido estático y áreas iluminadas, pero no pretende garantizar la eliminación absoluta de retención o desgaste del panel. Su objetivo es minimizar de forma práctica el riesgo durante operaciones largas sin alterar el funcionamiento del instalador.
+
+
+## Mascotas del protector
+
+El modo de protección admite ahora mascotas animadas mediante `MascotManager`. Esta integración es exclusivamente visual y no modifica libcurl, el instalador, extractores, colas, bloqueos del botón PS ni `sceKernelPowerTick`.
+
+Fuentes combinadas:
+
+```text
+app0:mascots/
+ux0:data/psvitaalive/mascots/
+```
+
+El valor predeterminado de Settings es `Random`: cada entrada real al protector selecciona una mascota válida de cualquiera de las dos fuentes. El usuario también puede elegir `Off` o una mascota concreta.
+
+Las texturas se cargan únicamente para la sesión activa del protector y se liberan al salir. La carga/liberación se atiende en el hilo principal de UI antes del dibujo, nunca desde workers de red/instalación.
+
+El área lógica de movimiento continúa siendo 100 × 100 con margen seguro de 16 px. Los PNG físicos pueden tener otras dimensiones y se ajustan dentro de esa caja conservando la relación de aspecto.
+
+La especificación completa, instalación de mascotas de usuario, límites y pruebas está en [`MASCOTS.md`](MASCOTS.md).

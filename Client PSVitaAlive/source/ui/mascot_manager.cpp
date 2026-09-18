@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <cstddef>
 #include <string>
 #include <utility>
 #include <vector>
@@ -167,9 +168,13 @@ bool parseManifest(const std::string& basePath, ManifestDef& out, std::string& e
         return false;
     }
 
-    // The module may already be loaded by the catalog parser. Loading again is harmless on
-    // supported VitaSDK runtimes; parsing below remains the authoritative success check.
-    (void)sceSysmoduleLoadModule(SCE_SYSMODULE_JSON);
+    // Request the JSON sysmodule once for this process. The catalog parser may already have
+    // loaded it; the parse result below remains the authoritative validity check either way.
+    static bool jsonModuleRequested = false;
+    if (!jsonModuleRequested) {
+        jsonModuleRequested = true;
+        (void)sceSysmoduleLoadModule(SCE_SYSMODULE_JSON);
+    }
 
     VitaJsonAllocator allocator;
     sce::Json::InitParameter params;
@@ -563,7 +568,9 @@ bool MascotManager::start(const std::string& selection, uint64_t nowMs) {
         diagnostics::log("[Mascot] protector mascot disabled by settings");
         return false;
     }
-    if (impl_->catalog.empty()) scan();
+    // A protection entry is infrequent. Rescan here so mascots copied to ux0 while
+    // PSVitaAlive is already running can participate in the very next Random session.
+    scan();
     if (impl_->catalog.empty()) {
         diagnostics::log("[Mascot] no valid mascots available; protector continues without mascot");
         return false;

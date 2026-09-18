@@ -1,4 +1,5 @@
 #include "ui/full_catalog_screen.hpp"
+#include "ui/mascot_manager.hpp"
 #include "ui/news_markdown.hpp"
 #include "installer/app_settings.hpp"
 #include "installer/plugin_detector.hpp"
@@ -283,6 +284,10 @@ uint64_t gProtectionLastMoveMs = 0;
 int gProtectionX = (SCREEN_W - kProtectionBlockW) / 2;
 int gProtectionY = (SCREEN_H - kProtectionBlockH) / 2;
 uint32_t gProtectionRngState = 0;
+::psvitaalive::ui::MascotManager gProtectionMascotManager;
+std::string gProtectionMascotSelection = "random";
+bool gProtectionMascotStartPending = false;
+bool gProtectionMascotStopPending = false;
 
 uint64_t protectionNowMs() {
     return sceKernelGetProcessTimeWide() / 1000ULL;
@@ -364,6 +369,8 @@ void protectionUpdateForJob(bool active, int outcome, const std::string& stage) 
         gProtectionActive = false;
         gProtectionPhaseStartMs = 0;
         gProtectionLastMoveMs = 0;
+        gProtectionMascotStartPending = false;
+        gProtectionMascotStopPending = true;
         return;
     }
 
@@ -372,6 +379,8 @@ void protectionUpdateForJob(bool active, int outcome, const std::string& stage) 
         gProtectionActive = false;
         gProtectionPhaseStartMs = now;
         gProtectionLastMoveMs = 0;
+        gProtectionMascotStartPending = false;
+        gProtectionMascotStopPending = true;
         protectionChoosePosition(false);
         diagnostics::log("[UI] OLED protection phase timer started");
     }
@@ -386,6 +395,7 @@ void protectionTick() {
             gProtectionActive = true;
             protectionChoosePosition(false);
             gProtectionLastMoveMs = now;
+            gProtectionMascotStartPending = true;
             diagnostics::log("[UI] OLED protection entered");
         }
         return;
@@ -403,7 +413,23 @@ void protectionDismiss() {
     gProtectionActive = false;
     gProtectionPhaseStartMs = protectionNowMs();
     gProtectionLastMoveMs = 0;
+    gProtectionMascotStartPending = false;
+    gProtectionMascotStopPending = true;
     diagnostics::log("[UI] OLED protection dismissed by user; grace timer restarted");
+}
+
+void protectionServiceMascot() {
+    const uint64_t now = protectionNowMs();
+    if (gProtectionMascotStopPending) {
+        gProtectionMascotManager.stop();
+        gProtectionMascotStopPending = false;
+    }
+    if (gProtectionMascotStartPending) {
+        if (gProtectionActive) gProtectionMascotManager.start(gProtectionMascotSelection, now);
+        gProtectionMascotStartPending = false;
+    }
+    if (gProtectionActive && gProtectionMascotManager.active())
+        gProtectionMascotManager.update(now);
 }
 
 /** Rebuild RGBA with a new alpha; keeps RGB from c (vita2d RGBA8 = A<<24 | B<<16 | G<<8 | R). */
@@ -2644,6 +2670,9 @@ void FullCatalogScreen::evictTextureIfNeeded(const std::string& ns){
     }
 }
 void FullCatalogScreen::shutdown(){
+    gProtectionMascotStartPending = false;
+    gProtectionMascotStopPending = false;
+    gProtectionMascotManager.stop();
     releaseTextures();
     flushDeferredTextureFrees();
     if (catalogLoadingTex_) {
@@ -3466,21 +3495,21 @@ void FullCatalogScreen::handleTouch() {
         const int listW = (colW * 58) / 100;
         const int sideX = listX + listW + 12;
         struct Meta { bool sectionStart; const char* section; };
-        // Must match opts[10] section breaks in drawSettings
-        Meta meta[10] = {
+        // Must match opts[11] section breaks in drawSettings
+        Meta meta[11] = {
             {true, "INSTALL"}, {false, ""}, {false, ""},
-            {true, "INTERFACE"}, {false, ""}, {false, ""}, {false, ""}, {false, ""},
+            {true, "INTERFACE"}, {false, ""}, {false, ""}, {false, ""}, {false, ""}, {false, ""},
             {true, "CATALOG"}, {true, "UPDATES"}
         };
-        int rowY[10];
+        int rowY[11];
         int y = contentTop - static_cast<int>(settingsScrollY_);
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < 11; ++i) {
             if (meta[i].sectionStart && meta[i].section[0]) y += 22;
             rowY[i] = y;
             y += 52 + 8;
         }
         const int rowH = 52;
-        const int measured = 9 * (52 + 8) + 4 * 22;
+        const int measured = 11 * (52 + 8) + 4 * 22;
         const int listViewH = SCREEN_H - contentTop - FOOTER_H - 8;
         const float maxScroll = static_cast<float>(std::max(0, measured - listViewH));
 
@@ -3502,7 +3531,7 @@ void FullCatalogScreen::handleTouch() {
                 // Same as main catalog: drag steps move focus like D-Pad up/down
                 if (touchMoved_) {
                     constexpr float kScrollPx = 48.f;
-                    constexpr int kRows = 10;
+                    constexpr int kRows = 11;
                     touchAccumY_ += static_cast<float>(dy);
                     while (touchAccumY_ <= -kScrollPx) {
                         touchAccumY_ += kScrollPx;
@@ -3519,7 +3548,7 @@ void FullCatalogScreen::handleTouch() {
             const int x = touchStartX_, yy = touchStartY_;
             touchDown_ = false;
             // Allow slight finger jitter — still treat as tap if not a long drag
-            for (int i = 0; i < 10; ++i) {
+            for (int i = 0; i < 11; ++i) {
                 if (hit(x, yy, listX, rowY[i], listW, rowH)) {
                     if (settingsFocus_ == i) cycleSettingsOption(i, +1);
                     else settingsFocus_ = i;
@@ -3846,6 +3875,8 @@ void FullCatalogScreen::handleTouch() {
 
 void FullCatalogScreen::setAppSettings(const ::psvitaalive::AppSettingsData& settings) {
     settingsEdit_ = settings;
+    if (settingsEdit_.mascotSelection.empty()) settingsEdit_.mascotSelection = "random";
+    gProtectionMascotSelection = settingsEdit_.mascotSelection;
     applyColorTheme(settingsEdit_.colorTheme, false);
     ::psvitaalive::ui::setUiFontScalePercent(settingsEdit_.uiFontScalePct);
     // Apply saved typeface (init may have run with defaults before settings were injected).
@@ -3877,6 +3908,7 @@ void FullCatalogScreen::openSettings() {
         static const std::unordered_set<std::string> emptyImageKeep;
         imageCache_->cancelQueuedExcept(emptyImageKeep);
     }
+    gProtectionMascotManager.scan();
     pluginsStatus_ = ::psvitaalive::PluginDetector::scan();
     settingsKubridgeOk_ = essentialPluginFullyInstalled(
         "*KERNEL", "ur0:tai/kubridge.skprx", {"ur0:tai/kubridge.skprx"});
@@ -3898,6 +3930,13 @@ void FullCatalogScreen::openSettings() {
 void FullCatalogScreen::closeSettings(bool save) {
     if (state_.mode != UiMode::SETTINGS) return;
     if (save) {
+        if (settingsEdit_.mascotSelection.empty()) settingsEdit_.mascotSelection = "random";
+        if (settingsEdit_.mascotSelection != "random" && settingsEdit_.mascotSelection != "off" &&
+            !gProtectionMascotManager.find(settingsEdit_.mascotSelection)) {
+            diagnostics::log("[Mascot] saved selection disappeared; fallback=random");
+            settingsEdit_.mascotSelection = "random";
+        }
+        gProtectionMascotSelection = settingsEdit_.mascotSelection;
         if (settingsSave_) settingsSave_(settingsEdit_);
         showToast(::psvitaalive::L(::psvitaalive::TextId::SettingsSaved), 1600);
         diagnostics::log("[UI] settings saved");
@@ -4120,16 +4159,19 @@ void FullCatalogScreen::cycleSettingsOption(int row, int delta) {
         (void)delta;
         openThemePicker(); // same palette window as first-run setup
     } else if (row == 7) {
-        settingsEdit_.warnMissingPlugins = !settingsEdit_.warnMissingPlugins;
+        settingsEdit_.mascotSelection = gProtectionMascotManager.cycleSelection(
+            settingsEdit_.mascotSelection.empty() ? "random" : settingsEdit_.mascotSelection, delta);
     } else if (row == 8) {
-        settingsEdit_.promptImageWarmup = !settingsEdit_.promptImageWarmup;
+        settingsEdit_.warnMissingPlugins = !settingsEdit_.warnMissingPlugins;
     } else if (row == 9) {
+        settingsEdit_.promptImageWarmup = !settingsEdit_.promptImageWarmup;
+    } else if (row == 10) {
         triggerSelfUpdateAction();
     }
 }
 
 void FullCatalogScreen::handleSettingsInput(uint32_t pressed, uint32_t nav) {
-    constexpr int kRows = 10;
+    constexpr int kRows = 11;
     if (nav & SCE_CTRL_UP) {
         settingsFocus_ = (settingsFocus_ + kRows - 1) % kRows;
         settingsInfoScrollY_ = 0.f;
@@ -4218,6 +4260,13 @@ void FullCatalogScreen::drawSettings() {
     auto yesNo = [&](bool v) -> std::string {
         return v ? ::psvitaalive::L(TID::Yes) : ::psvitaalive::L(TID::No);
     };
+    auto mascotLabel = [&]() -> std::string {
+        const std::string selection = settingsEdit_.mascotSelection.empty() ? "random" : settingsEdit_.mascotSelection;
+        if (selection == "random") return ::psvitaalive::L("MASCOT_RANDOM");
+        if (selection == "off") return ::psvitaalive::L("MASCOT_OFF");
+        const ::psvitaalive::ui::MascotInfo* info = gProtectionMascotManager.find(selection);
+        return info ? info->name : ::psvitaalive::L("MASCOT_RANDOM");
+    };
 
     struct Opt {
         const char* section;
@@ -4243,7 +4292,7 @@ void FullCatalogScreen::drawSettings() {
             default: return ::psvitaalive::L(TID::FontDefault);
         }
     };
-    Opt opts[10] = {
+    Opt opts[11] = {
         {::psvitaalive::L(TID::SectionInstall), ::psvitaalive::L(TID::InstallMethod), methodLabel(), ::psvitaalive::L(TID::HintInstallMethod), true},
         {"", ::psvitaalive::L(TID::PspPs1Target), pspLabel(), ::psvitaalive::L(TID::HintPspTarget), false},
         {"", ::psvitaalive::L(TID::PspMediaAdrenaline), mediaFormatLabel(), ::psvitaalive::L(TID::HintPspMedia), false},
@@ -4251,6 +4300,7 @@ void FullCatalogScreen::drawSettings() {
         {"", ::psvitaalive::L(TID::UiFont), fontLabel(), ::psvitaalive::L(TID::HintUiFont), false},
         {"", ::psvitaalive::L(TID::UiFontSize), (std::to_string(settingsEdit_.uiFontScalePct) + "%"), ::psvitaalive::L(TID::HintUiFontSize), false},
         {"", ::psvitaalive::L(TID::ColorTheme), themeLabel() + "  >", ::psvitaalive::L(TID::HintColorTheme), false},
+        {"", ::psvitaalive::L("MASCOT"), mascotLabel(), ::psvitaalive::L("HINT_MASCOT"), false},
         {"", ::psvitaalive::L(TID::WarnMissingPlugins), yesNo(settingsEdit_.warnMissingPlugins), ::psvitaalive::L(TID::HintWarnPlugins), false},
         {::psvitaalive::L(TID::SectionCatalog), ::psvitaalive::L(TID::PromptImageDownload), yesNo(settingsEdit_.promptImageWarmup), ::psvitaalive::L(TID::HintImageWarmup), true},
         {::psvitaalive::L(TID::SectionUpdates), ::psvitaalive::L(TID::CheckForUpdates), updateLabel(), ::psvitaalive::L(TID::HintSelfUpdate), true},
@@ -4267,7 +4317,7 @@ void FullCatalogScreen::drawSettings() {
     const int rowGap = 8;
 
     int measured = 0;
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 11; ++i) {
         if (opts[i].sectionStart && opts[i].section[0]) measured += sectionH;
         measured += rowH + rowGap;
     }
@@ -4278,7 +4328,7 @@ void FullCatalogScreen::drawSettings() {
 
     {
         int fy = 0;
-        for (int i = 0; i <= settingsFocus_ && i < 10; ++i) {
+        for (int i = 0; i <= settingsFocus_ && i < 11; ++i) {
             if (opts[i].sectionStart && opts[i].section[0]) fy += sectionH;
             if (i < settingsFocus_) fy += rowH + rowGap;
         }
@@ -4295,9 +4345,9 @@ void FullCatalogScreen::drawSettings() {
     vita2d_enable_clipping();
     vita2d_set_clip_rectangle(listX, contentTop, listX + listW, listClipBottom);
 
-    int rowY[10] = {};
+    int rowY[11] = {};
     int y = contentTop - static_cast<int>(settingsScrollY_);
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 11; ++i) {
         if (opts[i].sectionStart && opts[i].section[0]) {
             ::psvitaalive::ui::uiDrawText(&font_, listX + 6, y + 16, DIM, 0.56f, opts[i].section);
             y += sectionH;
@@ -4384,16 +4434,21 @@ void FullCatalogScreen::drawSettings() {
             body3 = ::psvitaalive::L(TID::InfoColorTheme3);
             break;
         case 7:
+            body1 = ::psvitaalive::L("INFO_MASCOT_1");
+            body2 = ::psvitaalive::L("INFO_MASCOT_2");
+            body3 = ::psvitaalive::L("INFO_MASCOT_3");
+            break;
+        case 8:
             body1 = ::psvitaalive::L(TID::InfoWarnPlugins1);
             body2 = ::psvitaalive::L(TID::InfoWarnPlugins2);
             body3 = ::psvitaalive::L(TID::InfoWarnPlugins3);
             break;
-        case 8:
+        case 9:
             body1 = ::psvitaalive::L(TID::InfoImageWarmup1);
             body2 = ::psvitaalive::L(TID::InfoImageWarmup2);
             body3 = ::psvitaalive::L(TID::InfoImageWarmup3);
             break;
-        case 9:
+        case 10:
             body1 = ::psvitaalive::L(TID::InfoSelfUpdate1);
             body2 = ::psvitaalive::L(TID::InfoSelfUpdate2);
             body3 = ::psvitaalive::L(TID::InfoSelfUpdate3);
@@ -4450,7 +4505,7 @@ void FullCatalogScreen::drawSettings() {
             if (!pluginsStatus_.configPathUsed.empty()) {
                 pushWrapped(pluginsStatus_.configPathUsed.c_str(), DIM, 0.60f, 18);
             }
-            if (settingsFocus_ == 9) {
+            if (settingsFocus_ == 10) {
                 char ver[96];
                 sceClibSnprintf(ver, sizeof(ver), "%s: v%s",
                                 ::psvitaalive::L(TID::LocalVersion), PSVITAALIVE_VERSION);
@@ -6562,10 +6617,11 @@ if (catalogSplashAlpha_ > 0.01f && !installProgressActive_) {
 
 // Burn-in protection is intentionally restricted to active transfer/extract/install
 // phases. The normal progress/result UI returns immediately on phase changes/end.
-protectionTick();
 if (installProgressActive_ && installOutcome_ == 0 && gProtectionActive) {
     const unsigned protectionBlack = RGBA8(0, 0, 0, 255);
     vita2d_draw_rectangle(0, 0, SCREEN_W, SCREEN_H, protectionBlack);
+    // Mascot is below progress text so the transfer state always stays readable.
+    gProtectionMascotManager.render();
 
     using TID = ::psvitaalive::TextId;
     const char* phaseText = ::psvitaalive::L(TID::StageDownloading);
@@ -7375,6 +7431,8 @@ void FullCatalogScreen::drawFullCatalog(){vita2d_start_drawing();vita2d_set_clea
     handleTouch();
     updateTransition();
     pollSelfUpdateProgress();
+    protectionTick();
+    protectionServiceMascot();
     updateAnimations();
     // Settings is intentionally image-worker quiet; existing GPU textures remain resident.
     if(state_.mode!=UiMode::SETTINGS&&catalogSwitchCooldownFrames_==0)prepareVisibleTextures();
