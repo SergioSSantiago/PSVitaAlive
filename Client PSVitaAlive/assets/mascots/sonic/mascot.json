@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "name": "Soni",
+  "native_facing": "left",
+  "width": 100,
+  "height": 100,
+  "behavior": {
+    "run_speed": 300,
+    "idle_min_ms": 2000,
+    "idle_max_ms": 5000,
+    "run_max_ms": 4000
+  },
+  "animations": {
+    "idle": [
+      {
+        "name": "normal",
+        "frame_ms": 150,
+        "frames": [
+          "sonic_sprite_001.png"
+        ]
+      },
+      {
+        "name": "idle_2",
+        "frame_ms": 300,
+        "frames": [
+          "sonic_sprite_007.png",
+          "sonic_sprite_008.png",
+          "sonic_sprite_009.png",
+          "sonic_sprite_008_2.png",
+          "sonic_sprite_009_3.png",
+          "sonic_sprite_008_3.png"
+        ]
+      },
+      {
+        "name": "idle_3",
+        "frame_ms": 150,
+        "frames": [
+          "sonic_sprite_017.png"
+        ]
+      },
+      {
+        "name": "idle_4",
+        "frame_ms": 300,
+        "frames": [
+          "sonic_sprite_015.png",
+          "sonic_sprite_016.png"
+        ]
+      }
+    ],
+    "run": [
+      {
+        "name": "run",
+        "frame_ms": 40,
+        "frames": [
+          "sonic_sprite_026.png",
+          "sonic_sprite_027.png",
+          "sonic_sprite_028.png",
+          "sonic_sprite_029.png",
+          "sonic_sprite_030.png"
+        ]
+      },
+      {
+        "name": "run_2",
+        "frame_ms": 40,
+        "frames": [
+          "sonic_sprite_054.png",
+          "sonic_sprite_055.png",
+          "sonic_sprite_056.png",
+          "sonic_sprite_057.png"
+        ]
+      }
+    ]
+  }
+}

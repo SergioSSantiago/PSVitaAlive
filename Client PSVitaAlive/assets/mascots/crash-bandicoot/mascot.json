@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "name": "Crash Bandicoot",
+  "native_facing": "right",
+  "width": 100,
+  "height": 100,
+  "behavior": {
+    "run_speed": 150,
+    "idle_min_ms": 2000,
+    "idle_max_ms": 5000,
+    "run_max_ms": 4000
+  },
+  "animations": {
+    "idle": [
+      {
+        "name": "normal",
+        "frame_ms": 150,
+        "frames": [
+          "crash_sprite_001.png",
+          "crash_sprite_002.png",
+          "crash_sprite_003.png",
+          "crash_sprite_004.png",
+          "crash_sprite_005.png",
+          "crash_sprite_006.png"
+        ]
+      },
+      {
+        "name": "idle_2",
+        "frame_ms": 150,
+        "frames": [
+          "crash_sprite_160.png",
+          "crash_sprite_161.png"
+        ]
+      },
+      {
+        "name": "idle_3",
+        "frame_ms": 150,
+        "frames": [
+          "crash_sprite_233.png",
+          "crash_sprite_234.png",
+          "crash_sprite_235.png",
+          "crash_sprite_236.png",
+          "crash_sprite_237.png",
+          "crash_sprite_238.png",
+          "crash_sprite_239.png",
+          "crash_sprite_240.png",
+          "crash_sprite_241.png",
+          "crash_sprite_242.png",
+          "crash_sprite_243.png",
+          "crash_sprite_244.png",
+          "crash_sprite_245.png",
+          "crash_sprite_246.png",
+          "crash_sprite_247.png",
+          "crash_sprite_248.png",
+          "crash_sprite_249.png",
+          "crash_sprite_250.png",
+          "crash_sprite_251.png",
+          "crash_sprite_252.png",
+          "crash_sprite_253.png",
+          "crash_sprite_254.png",
+          "crash_sprite_255.png",
+          "crash_sprite_256.png",
+          "crash_sprite_257.png"
+        ]
+      },
+      {
+        "name": "idle_4",
+        "frame_ms": 150,
+        "frames": [
+          "crash_sprite_272.png",
+          "crash_sprite_273.png"
+        ]
+      }
+    ],
+    "run": [
+      {
+        "name": "run",
+        "frame_ms": 90,
+        "frames": [
+          "crash_sprite_258.png",
+          "crash_sprite_259.png",
+          "crash_sprite_260.png",
+          "crash_sprite_261.png",
+          "crash_sprite_262.png",
+          "crash_sprite_263.png",
+          "crash_sprite_264.png",
+          "crash_sprite_265.png",
+          "crash_sprite_266.png",
+          "crash_sprite_267.png",
+          "crash_sprite_268.png",
+          "crash_sprite_269.png",
+          "crash_sprite_270.png",
+          "crash_sprite_271.png"
+        ]
+      },
+      {
+        "name": "run_2",
+        "frame_ms": 90,
+        "frames": [
+          "crash_sprite_218.png",
+          "crash_sprite_219.png"
+        ]
+      },
+      {
+        "name": "run_3",
+        "frame_ms": 90,
+        "frames": [
+          "crash_sprite_180.png",
+          "crash_sprite_181.png",
+          "crash_sprite_182.png",
+          "crash_sprite_183.png"
+        ]
+      }
+    ]
+  }
+}
