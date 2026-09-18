@@ -1,0 +1,62 @@
+name: Finalize mascot client integration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/finalize-mascot-client.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Remove local static fallback objects
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('Client PSVitaAlive/source/ui/mascot_manager.cpp')
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  '''const std::vector<MascotInfo>& MascotManager::mascots() const {\n    static const std::vector<MascotInfo> empty;\n    return impl_ ? impl_->catalog : empty;\n}''',
+                  '''const std::vector<MascotInfo>& MascotManager::mascots() const {\n    return impl_->catalog;\n}''',
+                  'mascots fallback static'
+              ),
+              (
+                  '''const std::string& MascotManager::activeKey() const {\n    static const std::string empty;\n    return impl_ ? impl_->activeKey : empty;\n}''',
+                  '''const std::string& MascotManager::activeKey() const {\n    return impl_->activeKey;\n}''',
+                  'activeKey fallback static'
+              ),
+          ]
+          for old, new, label in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, got {count}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+
+      - name: Validate and clean temporary CI
+        run: |
+          set -euo pipefail
+          git diff --check
+          ! grep -F 'static const std::vector<MascotInfo> empty' 'Client PSVitaAlive/source/ui/mascot_manager.cpp'
+          ! grep -F 'static const std::string empty' 'Client PSVitaAlive/source/ui/mascot_manager.cpp'
+          rm -f .github/workflows/temp-mascot-client-build.yml
+          rm -f .github/workflows/finalize-mascot-client.yml
+
+      - name: Commit final cleanup
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'chore(client): finalize mascot runtime safety'
+          git push origin HEAD:main
