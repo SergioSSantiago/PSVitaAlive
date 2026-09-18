@@ -1,0 +1,24 @@
+name: Temporary Smart Splitter Validation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check JavaScript syntax
+        run: |
+          node --check web/tools/mascot-generator/sprite-sheet-splitter.js
+          node --check web/tools/mascot-generator/sprite-sheet-background-removal.js
+      - name: Check smart splitter integration
+        run: |
+          grep -q "Automatic — recommended" web/tools/mascot-generator/sprite-sheet-splitter.js
+          grep -q "Add missed sprite" web/tools/mascot-generator/sprite-sheet-splitter.js
+          grep -q "index - width - 1" web/tools/mascot-generator/sprite-sheet-splitter.js
+          grep -q "Background cleanup settings" web/tools/mascot-generator/sprite-sheet-background-removal.js
+          grep -q "recoverDarkOutlinePixels" web/tools/mascot-generator/sprite-sheet-background-removal.js
+          grep -q "Smart Sprite Sheet Splitter" web/tools/mascot-generator/SPRITE_SHEET_SPLITTER.md
