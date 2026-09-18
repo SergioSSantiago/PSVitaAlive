@@ -529,8 +529,7 @@ void MascotManager::scan() {
 }
 
 const std::vector<MascotInfo>& MascotManager::mascots() const {
-    static const std::vector<MascotInfo> empty;
-    return impl_ ? impl_->catalog : empty;
+    return impl_->catalog;
 }
 
 const MascotInfo* MascotManager::find(const std::string& key) const {
@@ -708,8 +707,7 @@ bool MascotManager::active() const {
 }
 
 const std::string& MascotManager::activeKey() const {
-    static const std::string empty;
-    return impl_ ? impl_->activeKey : empty;
+    return impl_->activeKey;
 }
 
 } // namespace psvitaalive::ui
