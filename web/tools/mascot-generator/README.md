@@ -18,6 +18,14 @@ web/tools/mascot-generator/
 - Import an existing `mascot.json`.
 - Import a complete mascot ZIP.
 - Import PNG files separately and automatically match missing frame names when possible.
+- Split Sprite Sheets into individual PNG frames directly in the browser.
+- Accept Sprite Sheets that are already transparent or have a solid-color background.
+- Remove a solid background by enabling cleanup and tapping/clicking the background once.
+- Sample a 5 × 5 neighborhood around the touched point instead of requiring a dragged selection.
+- Configure RGB color tolerance and safer edge-connected background removal.
+- Preview the cleaned Sprite Sheet before using its detected frames.
+- Send selected extracted sprites directly to any Idle or Run animation.
+- Download selected extracted sprites as a standalone ZIP when desired.
 - Create multiple Idle and Run animations.
 - Reorder frames with buttons or drag and drop.
 - Configure frame timing, Idle range, Run timeout and movement speed.
@@ -35,7 +43,48 @@ web/tools/mascot-generator/
 
 The tool is fully client-side and works on GitHub Pages. Imported files are read locally by the browser and are not uploaded anywhere.
 
+Sprite Sheet cleanup is also local. The original image remains untouched; a temporary transparent PNG is generated in browser memory and passed into the existing splitter.
+
 No server, database or API is required.
+
+## Sprite Sheet workflow
+
+The optional authoring flow is:
+
+```text
+Sprite Sheet PNG
+      ↓
+optional solid-background cleanup
+      ↓
+transparent working PNG
+      ↓
+connected-component detection
+      ↓
+select extracted sprites
+      ↓
+Idle / Run animation
+      ↓
+normal mascot preview + validation + ZIP export
+```
+
+For a sheet with a solid background:
+
+1. Load the Sprite Sheet.
+2. Enable **Remove solid background**.
+3. Tap/click once on a clean background area.
+4. The browser averages a 5 × 5 neighborhood around that point.
+5. Matching pixels are made transparent using RGB tolerance `24` by default.
+6. Safer **edge-connected only** removal is enabled by default.
+7. The cleaned PNG is automatically sent to the existing Sprite Sheet detector.
+8. Review the detected sprites, choose the desired frames and send them to an animation.
+
+The user can tap another point at any time, change tolerance, switch between edge-connected and all-matching removal, or reset the sample to restore the untouched source.
+
+Detailed behavior is documented in:
+
+```text
+SPRITE_SHEET_SPLITTER.md
+```
 
 ## Manifest format
 
@@ -89,20 +138,24 @@ The internal mascot ID is the ZIP/folder name and is intentionally not duplicate
 - `idle_max_ms` must be greater than or equal to `idle_min_ms`.
 - Frame file names must be unique inside the mascot folder.
 
+Sprite Sheet cleanup does **not** extend or modify this schema. Sprite Sheets are only an authoring input; final mascot packages still contain individual PNG frames.
+
 ## ZIP implementation
 
-The exporter writes standard ZIP archives using the `STORE` method (no compression). PNG images are already compressed, so extra DEFLATE compression would provide little value and would add an external dependency.
+The mascot exporter writes standard ZIP archives using the `STORE` method (no compression). PNG images are already compressed, so extra DEFLATE compression would provide little value and would add an external dependency.
 
-The importer supports:
+The mascot importer supports:
 
 - ZIP `STORE` entries directly.
 - ZIP `DEFLATE` entries when the browser provides `DecompressionStream('deflate-raw')`.
 
 The ZIP parser reads the central directory and does not execute or extract files to the user's filesystem.
 
+The optional Sprite Sheet helper can also generate a standalone ZIP containing only the selected extracted PNG frames.
+
 ## Preview model
 
-The simulation uses the same design targets documented for the future client implementation:
+The mascot simulation uses the same design targets as the PS Vita client:
 
 ```text
 screen:       960 × 544
@@ -130,14 +183,20 @@ vitacat.zip
     └── run_01_01.png
 ```
 
-This is intended to be copied to the future client asset location:
+Built-in mascots can be placed in:
 
 ```text
 Client PSVitaAlive/assets/mascots/vitacat/
 ```
 
-The current implementation of this web tool does **not** modify or require that client path to exist yet.
+User-installed mascots can use the same folder format under:
+
+```text
+ux0:data/psvitaalive/mascots/vitacat/
+```
+
+The web generator itself only creates the package; it does not write to either PS Vita location.
 
 ## Maintenance rule
 
-Keep this tool aligned with the future mascot manifest contract. If the mascot schema is extended later, add a new `schema_version` path rather than silently changing version 1 semantics.
+Keep this tool aligned with the mascot manifest contract. If the mascot schema is extended later, add a new `schema_version` path rather than silently changing version 1 semantics.
