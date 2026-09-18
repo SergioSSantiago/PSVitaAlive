@@ -272,7 +272,8 @@ private:
     void drawCatalogCard(const CatalogItem& item, int index, int x, int y, int width, int height, bool focused, int clipLeft, int clipTop, int clipRight, int clipBottom);
     LocalInstallInfo queryLocalInstall(const CatalogItem& item);
     void invalidateInstallStatus(const std::string& titleId = {});
-    void drawInstallBadge(int x, int y, const LocalInstallInfo& info, bool compact);
+    void drawInstallBadge(int x, int y, const LocalInstallInfo& info, bool compact,
+                          int clipLeft, int clipTop, int clipRight, int clipBottom);
     void drawScrollFades(int x, int y, int width, int height) const;
     void drawActivePanelFrame(int x, int y, int width, int height, const char* label) const;
     float focusPulse() const;

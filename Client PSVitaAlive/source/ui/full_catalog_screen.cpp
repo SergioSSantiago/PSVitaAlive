@@ -5632,7 +5632,8 @@ int installBadgeWidth(const ::psvitaalive::ui::UiFont* font, const LocalInstallI
 }
 } // namespace
 
-void FullCatalogScreen::drawInstallBadge(int x, int y, const LocalInstallInfo& info, bool compact) {
+void FullCatalogScreen::drawInstallBadge(int x, int y, const LocalInstallInfo& info, bool compact,
+                                               int clipLeft, int clipTop, int clipRight, int clipBottom) {
     if (!isInstallBadgeState(info)) return;
 
     const bool upd = (info.state == LocalInstallState::UpdateAvailable);
@@ -5647,6 +5648,17 @@ void FullCatalogScreen::drawInstallBadge(int x, int y, const LocalInstallInfo& i
     const int bw = installBadgeWidth(&font_, info, compact);
     const int tw = ::psvitaalive::ui::uiTextWidth(&font_, scale, label);
     const int innerW = std::max(8, bw - padX * 2);
+
+    // Badge rendering owns a temporary scissor, but it must never widen the
+    // card/panel clip supplied by the caller. This matters while a card is
+    // partially entering/leaving the catalog viewport during smooth scroll.
+    const int drawClipL = std::max(x - 1, clipLeft);
+    const int drawClipT = std::max(y - 1, clipTop);
+    const int drawClipR = std::min(x + bw + 1, clipRight);
+    const int drawClipB = std::min(y + bh + 1, clipBottom);
+    if (drawClipR <= drawClipL || drawClipB <= drawClipT) return;
+    vita2d_enable_clipping();
+    vita2d_set_clip_rectangle(drawClipL, drawClipT, drawClipR, drawClipB);
 
     // The update badge never disappears: only its outer glow breathes softly.
     if (upd) {
@@ -5666,8 +5678,14 @@ void FullCatalogScreen::drawInstallBadge(int x, int y, const LocalInstallInfo& i
     } else {
         // Long translations scroll inside the badge instead of covering card metadata.
         drawMarqueeText(&font_, x + padX, baselineY, innerW, fg, scale, label, true,
-                        x + padX, y, x + bw - padX, y + bh);
+                        std::max(x + padX, clipLeft), std::max(y, clipTop),
+                        std::min(x + bw - padX, clipRight), std::min(y + bh, clipBottom));
     }
+
+    // drawMarqueeText temporarily tightens the scissor. Always restore the
+    // caller-owned card/detail clip before returning.
+    vita2d_enable_clipping();
+    vita2d_set_clip_rectangle(clipLeft, clipTop, clipRight, clipBottom);
 }
 
 void FullCatalogScreen::drawCatalogCard(const CatalogItem&it,int idx,int x,int y,int w,int h,bool focus,int clipL,int clipT,int clipR,int clipB){
@@ -5787,7 +5805,9 @@ void FullCatalogScreen::drawCatalogCard(const CatalogItem&it,int idx,int x,int y
     // Single localized install/update badge: top-right only.
     // The title width above already reserves this exact badge width.
     if (cardHasInstallBadge) {
-        drawInstallBadge(x + ox + ww - cardInstallBadgeW - 6, y + oy + 6, cardInstall, compact);
+        drawInstallBadge(x + ox + ww - cardInstallBadgeW - 6, y + oy + 6, cardInstall, compact,
+                         std::max(x + ox, clipL), std::max(y + oy, clipT),
+                         std::min(x + ox + ww, clipR), std::min(y + oy + hh, clipB));
         // A marquee inside the badge can tighten the scissor; restore the card clip.
         vita2d_enable_clipping();
         vita2d_set_clip_rectangle(std::max(x + ox, clipL), std::max(y + oy, clipT),
@@ -6132,7 +6152,8 @@ void FullCatalogScreen::drawDetailPanel(int x,int y,int w,int h){
         const LocalInstallInfo li = queryLocalInstall(it);
         if (li.state == LocalInstallState::Installed || li.state == LocalInstallState::UpdateAvailable || li.state == LocalInstallState::InstalledUnknown) {
             const int bw = installBadgeWidth(&font_, li, false);
-            drawInstallBadge(x + w - bw - 10, y + 12, li, false);
+            drawInstallBadge(x + w - bw - 10, y + 12, li, false,
+                             x, y, x + w, y + h);
             // Restore the detail-panel scissor if the localized badge is marqueeing.
             vita2d_enable_clipping();
             vita2d_set_clip_rectangle(x, y, x + w, y + h);
