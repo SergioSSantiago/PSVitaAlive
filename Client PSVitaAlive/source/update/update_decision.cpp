@@ -35,8 +35,57 @@ std::vector<int> parseVersionParts(const std::string& in) {
     return parts;
 }
 
-bool versionsEqualLoose(const std::string& a, const std::string& b) {
-    return compareNormalizedVersions(a, b) == 0;
+std::string trimAscii(std::string s) {
+    size_t first = 0;
+    while (first < s.size() && std::isspace(static_cast<unsigned char>(s[first]))) ++first;
+    size_t last = s.size();
+    while (last > first && std::isspace(static_cast<unsigned char>(s[last - 1]))) --last;
+    return s.substr(first, last - first);
+}
+
+bool parseUnsignedStrict(const std::string& s, int& out) {
+    if (s.empty()) return false;
+    int value = 0;
+    for (unsigned char c : s) {
+        if (!std::isdigit(c)) return false;
+        value = value * 10 + (c - '0');
+        if (value > 9999) return false;
+    }
+    out = value;
+    return true;
+}
+
+// Some Vita projects must squeeze semantic X.Y.Z into SFO APP_VER's XX.YY
+// field and encode it as XX.YZ. Example: 1.7.1 -> 01.71.
+bool parseSemanticTripleForVita(const std::string& input, int& major, int& minor, int& patch) {
+    std::string s = trimAscii(input);
+    if (!s.empty() && (s.front() == 'v' || s.front() == 'V')) s.erase(s.begin());
+
+    const size_t p1 = s.find('.');
+    if (p1 == std::string::npos) return false;
+    const size_t p2 = s.find('.', p1 + 1);
+    if (p2 == std::string::npos || s.find('.', p2 + 1) != std::string::npos) return false;
+
+    if (!parseUnsignedStrict(s.substr(0, p1), major) ||
+        !parseUnsignedStrict(s.substr(p1 + 1, p2 - p1 - 1), minor) ||
+        !parseUnsignedStrict(s.substr(p2 + 1), patch)) {
+        return false;
+    }
+
+    // XX.YZ only has one decimal digit available for Y and one for Z.
+    return major >= 0 && major <= 99 && minor >= 0 && minor <= 9 && patch >= 0 && patch <= 9;
+}
+
+bool parseVitaAppVer(const std::string& input, int& major, int& minorPatch) {
+    const std::string s = trimAscii(input);
+    const size_t dot = s.find('.');
+    if (dot == std::string::npos || s.find('.', dot + 1) != std::string::npos) return false;
+
+    const std::string majorPart = s.substr(0, dot);
+    const std::string fractionalPart = s.substr(dot + 1);
+    if (majorPart.empty() || majorPart.size() > 2 || fractionalPart.size() != 2) return false;
+    if (!parseUnsignedStrict(majorPart, major) || !parseUnsignedStrict(fractionalPart, minorPatch)) return false;
+    return major >= 0 && major <= 99 && minorPatch >= 0 && minorPatch <= 99;
 }
 
 } // namespace
@@ -53,6 +102,30 @@ int compareNormalizedVersions(const std::string& a, const std::string& b) {
     }
     return 0;
 }
+
+namespace {
+
+int compareSfoToCatalogVersion(const std::string& sfoVersion, const std::string& catalogVersion) {
+    int catalogMajor = 0;
+    int catalogMinor = 0;
+    int catalogPatch = 0;
+    int sfoMajor = 0;
+    int sfoMinorPatch = 0;
+
+    if (parseSemanticTripleForVita(catalogVersion, catalogMajor, catalogMinor, catalogPatch) &&
+        parseVitaAppVer(sfoVersion, sfoMajor, sfoMinorPatch)) {
+        const int catalogMinorPatch = catalogMinor * 10 + catalogPatch;
+        if (sfoMajor < catalogMajor) return -1;
+        if (sfoMajor > catalogMajor) return 1;
+        if (sfoMinorPatch < catalogMinorPatch) return -1;
+        if (sfoMinorPatch > catalogMinorPatch) return 1;
+        return 0;
+    }
+
+    return compareNormalizedVersions(sfoVersion, catalogVersion);
+}
+
+} // namespace
 
 bool isUnreliableSfoVersion(const std::string& appVer) {
     std::string s = toLower(appVer);
@@ -143,8 +216,9 @@ InstallDetectResult decideInstallState(
 
         // If APP_VER is actually reliable and already says current/newer, prefer
         // that evidence over a potentially stale receipt. Never offer a downgrade.
+        // APP_VER may use Vita's XX.YY encoding for semantic X.Y.Z (01.71 = 1.7.1).
         if (sfo.hasAppVer && !sfo.appVer.empty() && !isUnreliableSfoVersion(sfo.appVer)) {
-            const int sfoCmp = compareNormalizedVersions(sfo.appVer, catalogVersion);
+            const int sfoCmp = compareSfoToCatalogVersion(sfo.appVer, catalogVersion);
             if (sfoCmp == 0) {
                 out.state = InstallDetectState::Installed;
                 out.source = "sfo";
@@ -193,14 +267,14 @@ InstallDetectResult decideInstallState(
         out.source = "sfo";
         out.installedVersion = sfo.appVer;
 
-        if (!catalogVersion.empty() && versionsEqualLoose(sfo.appVer, catalogVersion)) {
+        if (!catalogVersion.empty() && compareSfoToCatalogVersion(sfo.appVer, catalogVersion) == 0) {
             out.state = InstallDetectState::Installed;
             return out;
         }
 
         if (policy == SfoPolicy::Trusted && !catalogVersion.empty() &&
             !isUnreliableSfoVersion(sfo.appVer)) {
-            if (compareNormalizedVersions(sfo.appVer, catalogVersion) < 0) {
+            if (compareSfoToCatalogVersion(sfo.appVer, catalogVersion) < 0) {
                 out.state = InstallDetectState::UpdateAvailable;
                 return out;
             }
