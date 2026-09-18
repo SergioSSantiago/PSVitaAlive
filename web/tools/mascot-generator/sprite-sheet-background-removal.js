@@ -1,7 +1,7 @@
 (() => {
     'use strict';
 
-    const SAMPLE_RADIUS = 2; // 5 × 5 sample around the touched point.
+    const SAMPLE_RADIUS = 2;
     const DEFAULT_TOLERANCE = 24;
 
     const el = {
@@ -21,6 +21,8 @@
 
     if (!el.file || !el.enable || !el.preview) return;
 
+    simplifyBackgroundUi();
+
     const previewContext = el.preview.getContext('2d');
     let injecting = false;
     let loadGeneration = 0;
@@ -36,9 +38,32 @@
         sampleX: 0,
         sampleY: 0,
         color: { r: 0, g: 0, b: 0 },
+        autoTolerance: DEFAULT_TOLERANCE,
+        manualTolerance: false,
         processedCanvas: null,
-        removedPixels: 0
+        removedPixels: 0,
+        recoveredOutlinePixels: 0
     };
+
+    function simplifyBackgroundUi() {
+        const controls = document.querySelector('.background-controls');
+        if (controls && !controls.closest('.background-expert')) {
+            const details = document.createElement('details');
+            details.className = 'splitter-advanced background-expert';
+            details.style.marginTop = '12px';
+            const summary = document.createElement('summary');
+            summary.textContent = 'Background cleanup settings (usually not needed)';
+            controls.parentNode.insertBefore(details, controls);
+            details.appendChild(summary);
+            details.appendChild(controls);
+        }
+        const hint = document.querySelector('.background-hint');
+        if (hint) {
+            hint.innerHTML = '<strong>Recommended:</strong> just tap a clean part of the background once. The tool chooses a safe tolerance automatically and protects dark pixel-art outlines when possible. Open the settings above only if the preview still needs adjustment.';
+        }
+        const badge = document.querySelector('.background-badge');
+        if (badge) badge.textContent = 'ONE TAP · AUTO CLEANUP';
+    }
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -47,6 +72,10 @@
             .replaceAll('>', '&gt;')
             .replaceAll('"', '&quot;')
             .replaceAll("'", '&#039;');
+    }
+
+    function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
     }
 
     function setStatus(kind, html) {
@@ -74,8 +103,9 @@
     }
 
     function toleranceValue() {
+        if (!state.manualTolerance) return state.autoTolerance;
         const value = Number.parseInt(el.tolerance?.value, 10);
-        return Math.min(255, Math.max(0, Number.isFinite(value) ? value : DEFAULT_TOLERANCE));
+        return clamp(Number.isFinite(value) ? value : state.autoTolerance, 0, 255);
     }
 
     function disposeOriginal() {
@@ -91,8 +121,11 @@
         state.sampleX = 0;
         state.sampleY = 0;
         state.color = { r: 0, g: 0, b: 0 };
+        state.autoTolerance = DEFAULT_TOLERANCE;
+        state.manualTolerance = false;
         state.processedCanvas = null;
         state.removedPixels = 0;
+        state.recoveredOutlinePixels = 0;
         el.preview.width = 1;
         el.preview.height = 1;
         previewContext.clearRect(0, 0, 1, 1);
@@ -117,9 +150,8 @@
     function drawPreview(source = null, mode = 'original') {
         const image = source || state.originalImage;
         if (!image || !state.width || !state.height) return;
-
         const maxWidth = 920;
-        const maxHeight = 380;
+        const maxHeight = 420;
         const scale = Math.min(1, maxWidth / state.width, maxHeight / state.height);
         const width = Math.max(1, Math.round(state.width * scale));
         const height = Math.max(1, Math.round(state.height * scale));
@@ -148,7 +180,6 @@
             previewContext.stroke();
             previewContext.restore();
         }
-
         if (el.previewMode) el.previewMode.textContent = mode === 'processed' ? 'processed preview' : 'original preview';
     }
 
@@ -163,6 +194,8 @@
         state.processedCanvas = null;
         state.sampled = false;
         state.removedPixels = 0;
+        state.recoveredOutlinePixels = 0;
+        state.manualTolerance = false;
         updateSampleDisplay();
 
         const url = URL.createObjectURL(file);
@@ -180,22 +213,20 @@
             if (el.tools) el.tools.hidden = !el.enable.checked;
             drawPreview(image, 'original');
             if (el.enable.checked) {
-                setStatus('info', '<strong>Background removal is ready.</strong> Tap or click once on a clean area of the solid background. A 5 × 5 pixel neighborhood around that point will be sampled automatically.');
+                setStatus('info', '<strong>Ready.</strong> Tap or click once on a clean part of the solid background. The tool will choose the cleanup tolerance automatically.');
             } else {
-                setStatus('info', 'Enable <strong>Remove solid background</strong> if this Sprite Sheet does not already have transparency.');
+                setStatus('info', 'If this sheet has a solid-color background, enable <strong>Remove solid background</strong> and tap that background once.');
             }
         } catch (error) {
             URL.revokeObjectURL(url);
-            if (generation === loadGeneration) {
-                setStatus('error', `<strong>Background preview failed:</strong> ${escapeHtml(error.message)}`);
-            }
+            if (generation === loadGeneration) setStatus('error', `<strong>Background preview failed:</strong> ${escapeHtml(error.message)}`);
         }
     }
 
     function sampleOriginalArea(x, y) {
         if (!state.originalImage) throw new Error('Load a Sprite Sheet first.');
-        const centerX = Math.max(0, Math.min(state.width - 1, Math.round(x)));
-        const centerY = Math.max(0, Math.min(state.height - 1, Math.round(y)));
+        const centerX = clamp(Math.round(x), 0, state.width - 1);
+        const centerY = clamp(Math.round(y), 0, state.height - 1);
         const x1 = Math.max(0, centerX - SAMPLE_RADIUS);
         const y1 = Math.max(0, centerY - SAMPLE_RADIUS);
         const x2 = Math.min(state.width, centerX + SAMPLE_RADIUS + 1);
@@ -210,28 +241,38 @@
         context.imageSmoothingEnabled = false;
         context.drawImage(state.originalImage, x1, y1, width, height, 0, 0, width, height);
         const data = context.getImageData(0, 0, width, height).data;
-
+        const samples = [];
         let red = 0;
         let green = 0;
         let blue = 0;
-        let count = 0;
         for (let i = 0; i < data.length; i += 4) {
             if (data[i + 3] === 0) continue;
-            red += data[i];
-            green += data[i + 1];
-            blue += data[i + 2];
-            count += 1;
+            const sample = { r: data[i], g: data[i + 1], b: data[i + 2] };
+            samples.push(sample);
+            red += sample.r;
+            green += sample.g;
+            blue += sample.b;
         }
-        if (!count) throw new Error('The tapped area is already fully transparent. Tap an opaque part of the solid background instead.');
+        if (!samples.length) throw new Error('The tapped area is already transparent. Tap an opaque part of the solid background instead.');
+
+        const color = {
+            r: Math.round(red / samples.length),
+            g: Math.round(green / samples.length),
+            b: Math.round(blue / samples.length)
+        };
+        let maxDistance = 0;
+        for (const sample of samples) {
+            const distance = Math.hypot(sample.r - color.r, sample.g - color.g, sample.b - color.b);
+            if (distance > maxDistance) maxDistance = distance;
+        }
 
         state.sampleX = centerX;
         state.sampleY = centerY;
-        state.color = {
-            r: Math.round(red / count),
-            g: Math.round(green / count),
-            b: Math.round(blue / count)
-        };
+        state.color = color;
+        state.autoTolerance = clamp(Math.ceil(Math.max(DEFAULT_TOLERANCE, maxDistance * 2.5 + 8)), 12, 72);
+        state.manualTolerance = false;
         state.sampled = true;
+        if (el.tolerance) el.tolerance.value = state.autoTolerance;
         updateSampleDisplay();
     }
 
@@ -248,15 +289,21 @@
         const data = imageData.data;
         const total = width * height;
         const toleranceSquared = tolerance * tolerance;
+        const removedMask = new Uint8Array(total);
         let removed = 0;
+
+        function remove(index) {
+            if (removedMask[index]) return;
+            removedMask[index] = 1;
+            data[index * 4 + 3] = 0;
+            removed += 1;
+        }
 
         if (!edgeOnly) {
             for (let index = 0; index < total; index += 1) {
-                if (!isBackgroundCandidate(data, index, toleranceSquared)) continue;
-                data[index * 4 + 3] = 0;
-                removed += 1;
+                if (isBackgroundCandidate(data, index, toleranceSquared)) remove(index);
             }
-            return removed;
+            return { removed, removedMask };
         }
 
         const visited = new Uint8Array(total);
@@ -284,21 +331,56 @@
             const index = queue[head++];
             const y = Math.floor(index / width);
             const x = index - y * width;
-            data[index * 4 + 3] = 0;
-            removed += 1;
+            remove(index);
             if (x > 0) enqueue(index - 1);
             if (x + 1 < width) enqueue(index + 1);
             if (y > 0) enqueue(index - width);
             if (y + 1 < height) enqueue(index + width);
+            if (x > 0 && y > 0) enqueue(index - width - 1);
+            if (x + 1 < width && y > 0) enqueue(index - width + 1);
+            if (x > 0 && y + 1 < height) enqueue(index + width - 1);
+            if (x + 1 < width && y + 1 < height) enqueue(index + width + 1);
         }
+        return { removed, removedMask };
+    }
 
-        return removed;
+    function recoverDarkOutlinePixels(imageData, originalData, width, height, removedMask, edgeOnly) {
+        if (!edgeOnly) return 0;
+        const luminance = 0.2126 * state.color.r + 0.7152 * state.color.g + 0.0722 * state.color.b;
+        if (luminance > 48) return 0;
+        const data = imageData.data;
+        const total = width * height;
+        const surviving = new Uint8Array(total);
+        for (let index = 0; index < total; index += 1) surviving[index] = data[index * 4 + 3] > 0 ? 1 : 0;
+        let recovered = 0;
+
+        for (let index = 0; index < total; index += 1) {
+            if (!removedMask[index]) continue;
+            const y = Math.floor(index / width);
+            const x = index - y * width;
+            let neighbors = 0;
+            for (let oy = -1; oy <= 1; oy += 1) {
+                for (let ox = -1; ox <= 1; ox += 1) {
+                    if (!ox && !oy) continue;
+                    const nx = x + ox;
+                    const ny = y + oy;
+                    if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+                    if (surviving[ny * width + nx]) neighbors += 1;
+                }
+            }
+            if (neighbors < 2) continue;
+            const offset = index * 4;
+            data[offset] = originalData[offset];
+            data[offset + 1] = originalData[offset + 1];
+            data[offset + 2] = originalData[offset + 2];
+            data[offset + 3] = originalData[offset + 3];
+            recovered += 1;
+        }
+        return recovered;
     }
 
     function setFileInput(file) {
-        if (typeof DataTransfer === 'undefined') {
-            throw new Error('This browser cannot pass the cleaned image to the Sprite Sheet detector automatically.');
-        }
+        if (typeof DataTransfer === 'undefined') throw new Error('This browser cannot pass the cleaned image to the Sprite Sheet detector automatically.');
         const transfer = new DataTransfer();
         transfer.items.add(file);
         injecting = true;
@@ -310,6 +392,7 @@
         if (!state.originalFile) return;
         state.processedCanvas = null;
         state.removedPixels = 0;
+        state.recoveredOutlinePixels = 0;
         drawPreview(state.originalImage, 'original');
         setFileInput(state.originalFile);
     }
@@ -319,8 +402,7 @@
         const generation = ++processGeneration;
         const tolerance = toleranceValue();
         if (el.tolerance) el.tolerance.value = tolerance;
-
-        setStatus('info', 'Removing the sampled background locally and re-running Sprite Sheet detection…');
+        setStatus('info', 'Cleaning the sampled background and re-running Smart detection…');
         await new Promise(resolve => requestAnimationFrame(resolve));
 
         try {
@@ -331,14 +413,18 @@
             context.clearRect(0, 0, state.width, state.height);
             context.drawImage(state.originalImage, 0, 0);
             const imageData = context.getImageData(0, 0, state.width, state.height);
-            const removed = removeMatchingBackground(imageData, state.width, state.height, tolerance, Boolean(el.edgeOnly?.checked));
+            const originalData = new Uint8ClampedArray(imageData.data);
+            const result = removeMatchingBackground(imageData, state.width, state.height, tolerance, Boolean(el.edgeOnly?.checked));
+            const recovered = recoverDarkOutlinePixels(imageData, originalData, state.width, state.height, result.removedMask, Boolean(el.edgeOnly?.checked));
+            const finalRemoved = Math.max(0, result.removed - recovered);
             context.putImageData(imageData, 0, 0);
             if (generation !== processGeneration) return;
 
             const blob = await canvasBlob(work);
             if (generation !== processGeneration) return;
             state.processedCanvas = work;
-            state.removedPixels = removed;
+            state.removedPixels = finalRemoved;
+            state.recoveredOutlinePixels = recovered;
             drawPreview(work, 'processed');
 
             const fileName = state.originalFile?.name || 'sprite_sheet.png';
@@ -348,12 +434,11 @@
             });
             setFileInput(cleaned);
 
-            const mode = el.edgeOnly?.checked ? 'edge-connected matching pixels only' : 'all matching pixels';
-            setStatus('ok', `<strong>${removed.toLocaleString()} background pixels removed.</strong> Sample ${state.color.r}, ${state.color.g}, ${state.color.b} · tolerance ${tolerance} · ${mode}. The cleaned PNG has been sent automatically to the existing sprite detector.`);
+            const automatic = state.manualTolerance ? 'manual' : 'automatic';
+            const outlineText = recovered ? ` · ${recovered.toLocaleString()} dark edge pixels protected` : '';
+            setStatus('ok', `<strong>Background cleaned automatically.</strong> ${finalRemoved.toLocaleString()} pixels removed · ${automatic} tolerance ${tolerance}${outlineText}. Smart detection is using this transparent copy now.`);
         } catch (error) {
-            if (generation === processGeneration) {
-                setStatus('error', `<strong>Background removal failed:</strong> ${escapeHtml(error.message)}`);
-            }
+            if (generation === processGeneration) setStatus('error', `<strong>Background removal failed:</strong> ${escapeHtml(error.message)}`);
         }
     }
 
@@ -368,7 +453,7 @@
         const sourceY = (canvasY / el.preview.height) * state.height;
         try {
             sampleOriginalArea(sourceX, sourceY);
-            drawPreview(state.processedCanvas || state.originalImage, state.processedCanvas ? 'processed' : 'original');
+            drawPreview(state.originalImage, 'original');
             await applyBackgroundRemoval();
         } catch (error) {
             setStatus('warning', `<strong>Choose another point:</strong> ${escapeHtml(error.message)}`);
@@ -388,19 +473,19 @@
         if (el.tools) el.tools.hidden = !el.enable.checked;
         if (!state.originalImage) {
             setStatus('info', el.enable.checked
-                ? 'Load a Sprite Sheet, then tap once on its solid background to sample the removal color.'
+                ? 'Load a Sprite Sheet, then tap its solid background once.'
                 : 'Background removal is disabled.');
             return;
         }
         if (!el.enable.checked) {
             processGeneration += 1;
             await injectOriginal();
-            setStatus('info', 'Background removal disabled. The untouched original Sprite Sheet is being used for detection.');
+            setStatus('info', 'Background removal disabled. The untouched original Sprite Sheet is being used.');
             return;
         }
         drawPreview(state.processedCanvas || state.originalImage, state.processedCanvas ? 'processed' : 'original');
         if (state.sampled) await applyBackgroundRemoval();
-        else setStatus('info', '<strong>Tap or click once on a clean background area.</strong> The tool samples a 5 × 5 neighborhood automatically, so no dragging is needed.');
+        else setStatus('info', '<strong>Tap or click once on a clean background area.</strong> No dragging and no technical setup is required.');
     });
 
     el.preview.addEventListener('pointerup', handlePreviewPointer);
@@ -409,6 +494,7 @@
     });
 
     el.tolerance?.addEventListener('change', () => {
+        state.manualTolerance = true;
         if (state.sampled && el.enable.checked) applyBackgroundRemoval();
     });
     el.edgeOnly?.addEventListener('change', () => {
@@ -420,21 +506,25 @@
         state.sampled = false;
         state.processedCanvas = null;
         state.removedPixels = 0;
+        state.recoveredOutlinePixels = 0;
+        state.manualTolerance = false;
+        state.autoTolerance = DEFAULT_TOLERANCE;
+        if (el.tolerance) el.tolerance.value = DEFAULT_TOLERANCE;
         updateSampleDisplay();
         if (state.originalImage) drawPreview(state.originalImage, 'original');
         if (state.originalFile && el.enable.checked) await injectOriginal();
         setStatus('info', state.originalImage
-            ? '<strong>Sample cleared.</strong> Tap or click once on a clean background area to choose a new color.'
+            ? '<strong>Sample cleared.</strong> Tap another clean background area once.'
             : 'Load a Sprite Sheet first.');
     });
 
     el.clear?.addEventListener('click', () => {
         disposeOriginal();
-        setStatus('info', 'Load a Sprite Sheet. Background removal is optional and always works on a local copy of the original image.');
+        setStatus('info', 'Load a Sprite Sheet. Solid-background cleanup is optional and always works on a local copy of the original image.');
     });
 
     if (el.tolerance) el.tolerance.value = DEFAULT_TOLERANCE;
     if (el.tools) el.tools.hidden = !el.enable.checked;
     updateSampleDisplay();
-    setStatus('info', 'Load a Sprite Sheet. If it has a solid-color background, enable background removal and tap that background once.');
+    setStatus('info', 'Load a Sprite Sheet. If it has a solid background, enable background removal and tap that background once.');
 })();
