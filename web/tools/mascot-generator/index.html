@@ -7,6 +7,7 @@
     <meta name="description" content="Create, preview, validate, import and export PSVitaAlive screen-protection mascot packages directly in the browser.">
     <link rel="stylesheet" href="../../css/main.css">
     <link rel="stylesheet" href="mascot-generator.css">
+    <link rel="stylesheet" href="sprite-sheet-splitter.css">
 </head>
 <body>
 <header class="site-header">
@@ -29,14 +30,14 @@
         <div class="tool-hero">
             <span class="hero-label">DEVELOPER TOOL</span>
             <h1>Mascot Generator &amp; Preview</h1>
-            <p>Create PSVitaAlive screen-protection mascots without editing files manually. Import PNG frames, build Idle and Run animations, tune movement parameters, preview the exact 960 × 544 Vita play area, validate the package and export a ready-to-use ZIP.</p>
+            <p>Create PSVitaAlive screen-protection mascots without editing files manually. Import individual PNG frames or split a transparent Sprite Sheet directly in the browser, build Idle and Run animations, tune movement parameters, preview the exact 960 × 544 Vita play area, validate the package and export a ready-to-use ZIP.</p>
             <div class="tool-actions">
                 <label class="button secondary-button file-button">Import mascot ZIP<input id="import-zip" type="file" accept=".zip,application/zip"></label>
                 <label class="button secondary-button file-button">Import mascot.json<input id="import-json" type="file" accept=".json,application/json"></label>
                 <label class="button secondary-button file-button">Import images<input id="import-images" type="file" accept="image/png,.png" multiple></label>
                 <button id="reset-project" class="button secondary-button" type="button">Reset</button>
             </div>
-            <div class="notice info privacy-note"><strong>Local-only tool:</strong> images and ZIP files stay in your browser. Nothing is uploaded to PSVitaAlive or any server.</div>
+            <div class="notice info privacy-note"><strong>Local-only tool:</strong> images, Sprite Sheets and ZIP files stay in your browser. Nothing is uploaded to PSVitaAlive or any server.</div>
         </div>
 
         <div class="generator-layout">
@@ -55,7 +56,7 @@
                         <div class="field">
                             <label for="mascot-name">Display name <span>*</span></label>
                             <input id="mascot-name" required placeholder="Vita Cat" autocomplete="off">
-                            <small>Name shown in the future PSVitaAlive Settings selector.</small>
+                            <small>Name shown in the PSVitaAlive Settings selector.</small>
                         </div>
                         <div class="field">
                             <label for="native-facing">Native facing <span>*</span></label>
@@ -102,10 +103,103 @@
                     </div>
                 </section>
 
+                <section class="form-card splitter-card" id="sprite-sheet-splitter">
+                    <div class="card-heading">
+                        <h2>3. Sprite Sheet Splitter <span class="optional-pill">OPTIONAL</span></h2>
+                        <p>Only have a Sprite Sheet? Load a transparent PNG and this tool will detect each connected sprite, order them by rows, convert them to crisp square frames and send the selected frames directly into any Idle or Run animation.</p>
+                    </div>
+
+                    <div class="splitter-actions">
+                        <label class="button secondary-button file-button">Load Sprite Sheet<input id="sheet-file" type="file" accept="image/png,.png"></label>
+                        <button id="sheet-detect" class="button secondary-button" type="button">Re-detect</button>
+                        <button id="sheet-clear" class="button secondary-button" type="button">Clear Sheet</button>
+                    </div>
+
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="sheet-prefix">Frame filename prefix</label>
+                            <input id="sheet-prefix" value="sprite" autocomplete="off">
+                            <small>Generated names use <code>prefix_001.png</code>, <code>prefix_002.png</code>, and so on.</small>
+                        </div>
+                        <div class="field">
+                            <label for="sheet-size">Output frame size</label>
+                            <div class="input-with-unit"><input id="sheet-size" type="number" min="1" max="100" step="1" value="64"><span>px</span></div>
+                            <small>Each detected sprite is centered inside a square transparent canvas. 64 × 64 is recommended for pixel-art mascots.</small>
+                        </div>
+                    </div>
+
+                    <details class="splitter-advanced">
+                        <summary>Advanced detection filters</summary>
+                        <div class="field-grid">
+                            <div class="field">
+                                <label for="sheet-min-pixels">Minimum opaque pixels</label>
+                                <input id="sheet-min-pixels" type="number" min="0" step="1" value="100">
+                                <small>Components at or below this amount are ignored as noise.</small>
+                            </div>
+                            <div class="field">
+                                <label for="sheet-max-pixels">Maximum opaque pixels</label>
+                                <input id="sheet-max-pixels" type="number" min="1" step="1" value="10000">
+                                <small>Components at or above this amount are ignored, useful for logos or large decorations.</small>
+                            </div>
+                            <div class="field">
+                                <label for="sheet-min-dim">Minimum component dimension</label>
+                                <div class="input-with-unit"><input id="sheet-min-dim" type="number" min="0" step="1" value="20"><span>px</span></div>
+                                <small>Both source width and height must be larger than this value.</small>
+                            </div>
+                            <div class="field">
+                                <label for="sheet-max-dim">Maximum component dimension</label>
+                                <div class="input-with-unit"><input id="sheet-max-dim" type="number" min="1" step="1" value="120"><span>px</span></div>
+                                <small>Both source width and height must be smaller than this value.</small>
+                            </div>
+                            <div class="field">
+                                <label for="sheet-row-threshold">Row threshold</label>
+                                <div class="input-with-unit"><input id="sheet-row-threshold" type="number" min="0" step="1" value="30"><span>px</span></div>
+                                <small>Vertical center difference used to decide when a new sprite row begins.</small>
+                            </div>
+                        </div>
+                    </details>
+
+                    <div id="sheet-status" class="splitter-status info" aria-live="polite"></div>
+
+                    <div id="sheet-workspace" hidden>
+                        <div class="splitter-preview-panel">
+                            <div class="splitter-preview-title"><span>Detected Sprite Sheet</span><span>green = selected</span></div>
+                            <div class="splitter-preview-scroll"><canvas id="sheet-preview" width="1" height="1" aria-label="Sprite Sheet detection preview"></canvas></div>
+                        </div>
+
+                        <div class="splitter-selection-bar">
+                            <div class="splitter-selection-actions">
+                                <button id="sheet-select-all" class="small-button" type="button">Select all</button>
+                                <button id="sheet-select-none" class="small-button" type="button">Select none</button>
+                            </div>
+                            <span id="sheet-selection-count">0 / 0 selected</span>
+                        </div>
+
+                        <div id="sheet-sprites" class="splitter-sprite-grid"></div>
+
+                        <div class="splitter-target-row">
+                            <label class="compact-field">Send to state
+                                <select id="sheet-target-state">
+                                    <option value="idle" selected>Idle</option>
+                                    <option value="run">Run</option>
+                                </select>
+                            </label>
+                            <label class="compact-field">Target animation
+                                <select id="sheet-target-animation"></select>
+                            </label>
+                        </div>
+                        <div class="splitter-export-row">
+                            <button id="sheet-add-selected" class="button primary-button" type="button">Add selected to animation</button>
+                            <button id="sheet-download-zip" class="button secondary-button" type="button">Download selected sprites ZIP</button>
+                        </div>
+                        <div class="splitter-note"><strong>Detection method:</strong> non-transparent pixels are grouped using 4-way connected components, filtered by size, grouped top-to-bottom into rows and sorted left-to-right. Output uses nearest-neighbour scaling to preserve pixel art.</div>
+                    </div>
+                </section>
+
                 <section class="form-card animation-section" data-state="idle">
                     <div class="section-head-row">
                         <div class="card-heading">
-                            <h2>3. Idle animations</h2>
+                            <h2>4. Idle animations</h2>
                             <p>Idle animations loop while the mascot stays still. Add as many variants as you want.</p>
                         </div>
                         <button class="small-button add-animation" data-state="idle" type="button">+ Add Idle</button>
@@ -116,7 +210,7 @@
                 <section class="form-card animation-section" data-state="run">
                     <div class="section-head-row">
                         <div class="card-heading">
-                            <h2>4. Run animations</h2>
+                            <h2>5. Run animations</h2>
                             <p>Run animations loop while the mascot travels horizontally or diagonally toward a random destination.</p>
                         </div>
                         <button class="small-button add-animation" data-state="run" type="button">+ Add Run</button>
@@ -126,7 +220,7 @@
 
                 <section class="form-card export-card">
                     <div class="card-heading">
-                        <h2>5. Validate &amp; export</h2>
+                        <h2>6. Validate &amp; export</h2>
                         <p>The ZIP contains one ready-to-copy mascot folder with <code>mascot.json</code> and all referenced PNG frames.</p>
                     </div>
                     <div id="validation-summary" class="validation-summary" aria-live="polite"></div>
@@ -187,5 +281,6 @@
 
 <footer class="site-footer"><div class="container">PSVitaAlive Store — Free and open PlayStation Vita homebrew catalog.</div></footer>
 <script src="mascot-generator.js"></script>
+<script src="sprite-sheet-splitter.js"></script>
 </body>
 </html>
