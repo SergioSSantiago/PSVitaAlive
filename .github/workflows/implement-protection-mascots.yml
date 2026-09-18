@@ -18,6 +18,9 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Tighten guarded patch pattern
+        run: python scripts/fix_apply_protection_mascots.py
+
       - name: Apply guarded client patch
         run: python scripts/apply_protection_mascots.py
 
@@ -25,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m py_compile scripts/apply_protection_mascots.py
+          python -m py_compile scripts/apply_protection_mascots.py scripts/fix_apply_protection_mascots.py
           git diff --check
 
           grep -F 'source/ui/mascot_manager.cpp' 'Client PSVitaAlive/CMakeLists.txt'
@@ -44,10 +47,11 @@ jobs:
           test "$(grep -c 'protectionTick();' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp')" -eq 1
           test "$(grep -c 'gProtectionMascotManager.render();' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp')" -eq 1
 
-          # The generated catalogs and catalog source records must never be part of this patch.
+          # No catalog/web/source-data path may be modified by the integration patch.
           while IFS= read -r file; do
             case "$file" in
               'Client PSVitaAlive/'*) ;;
+              'scripts/apply_protection_mascots.py') ;;
               *) echo "Unexpected modified path: $file" >&2; exit 1 ;;
             esac
           done < <(git diff --name-only)
@@ -57,6 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -f scripts/apply_protection_mascots.py
+          rm -f scripts/fix_apply_protection_mascots.py
           rm -f .github/workflows/implement-protection-mascots.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
