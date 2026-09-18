@@ -66,9 +66,9 @@
                             <small>Direction the original PNG sprites face. The preview mirrors them automatically when needed.</small>
                         </div>
                         <div class="field locked-size-field">
-                            <label>Sprite canvas</label>
+                            <label>Mascot area</label>
                             <div class="locked-size"><span>100 px</span><span>×</span><span>100 px</span></div>
-                            <small>Version 1 requires every frame to be exactly 100 × 100 PNG.</small>
+                            <small>100 × 100 is the logical display area, not a required PNG size. Smaller sprites such as 64 × 64 are kept unchanged and scale up to fill this area without stretching. Larger PNGs are normalized down to fit 100 × 100 while preserving aspect ratio.</small>
                         </div>
                     </div>
                 </section>
@@ -170,7 +170,7 @@
                         <label class="checkbox-inline"><input id="debug-bounds" type="checkbox"> Sprite bounds</label>
                         <label class="checkbox-inline"><input id="debug-target" type="checkbox"> Run target</label>
                     </div>
-                    <div class="preview-help"><strong>Simulation rules</strong><p>960 × 544 screen, 16 px safe margin, 100 × 100 sprite, normalized diagonal movement, 2–5 second Idle by default and Run until destination or timeout.</p></div>
+                    <div class="preview-help"><strong>Simulation rules</strong><p>960 × 544 screen, 16 px safe margin, 100 × 100 logical mascot area, aspect-ratio-preserving sprite fit, normalized diagonal movement, 2–5 second Idle by default and Run until destination or timeout.</p></div>
                 </section>
 
                 <section class="preview-panel json-panel">
