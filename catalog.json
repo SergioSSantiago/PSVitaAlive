@@ -1,5 +1,94 @@
 [
   {
+    "id": "golden-balloon",
+    "title_id": "GBLN00001",
+    "name": "Golden Balloon",
+    "description": "DKR64 Vita Port of Golden Ballon",
+    "long_description": "A PS Vita port of Golden Balloon, itself a native and browser source port of the 1997 Nintendo 64 kart racer, built on the community decompilation.\nNot an emulator: the game is cross-compiled for the Vita and runs from a ROM you already own.",
+    "author_ids": [
+      "claude-ai",
+      "zm2283145"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "arcade",
+      "racing"
+    ],
+    "version": "1.7.2",
+    "version_date": "2026-09-17",
+    "requirements": "- No Data",
+    "size": 4718592,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/golden-balloon-psvita/GoldenBalloon-Vita-v1.7.2.vpk",
+        "size": 4718592,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/golden-balloon-psvita/Game%20Files%20goldenballoon.zip",
+        "size": 12582912,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "GitHub",
+        "url": "https://github.com/zm2283145/goldenballoon-vita-port"
+      }
+    ],
+    "icon": "https://archive.org/download/golden-balloon-psvita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/golden-balloon-psvita/shot0.png"
+    ]
+  },
+  {
+    "id": "shadow-guardian",
+    "title_id": "PSVSGHD01",
+    "name": "Shadow Guardian",
+    "description": "This is a wrapper/port of Shadow Guardian HD for the PS Vita.",
+    "long_description": "The port works by loading the official Android ARMv7 libshadowguardian.so executable in memory, resolving its imports with custom stubs, and patching it to properly run on the PS Vita using a fake JNI environment and translating OpenGL ES 2.0 calls to vitaGL.",
+    "author_ids": [
+      "claude-ai",
+      "metalsyntax"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "action",
+      "fps",
+      "shooter",
+      "strategy"
+    ],
+    "version": "1.2.5",
+    "version_date": "2026-09-16",
+    "requirements": "- Install the kubridge and fd_fix plugins on your PS Vita.\n- Install libshacccg.suprx, if you don't have it already.",
+    "size": 1153434,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/shadow-guardian-ps-vita/shadowguardian%20v1.2.5.vpk",
+        "size": 1153434,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/shadow-guardian-ps-vita/Game%20Files.zip",
+        "size": 598946611,
+        "extract_path": "ux0:data/"
+      }
+    ],
+    "icon": "https://archive.org/download/shadow-guardian-ps-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/shadow-guardian-ps-vita/shot0.png"
+    ]
+  },
+  {
     "id": "ctr-high-octane",
     "title_id": "CTR000004",
     "name": "CTR: High Octane",
@@ -388,52 +477,6 @@
     "icon": "https://archive.org/download/asphalt-5-ps-vita/icon0.png",
     "screenshots": [
       "https://archive.org/download/asphalt-5-ps-vita/shot0.png"
-    ]
-  },
-  {
-    "id": "golden-balloon",
-    "title_id": "GBLN00001",
-    "name": "Golden Balloon",
-    "description": "DKR64 Vita Port of Golden Ballon",
-    "long_description": "A PS Vita port of Golden Balloon, itself a native and browser source port of the 1997 Nintendo 64 kart racer, built on the community decompilation.\nNot an emulator: the game is cross-compiled for the Vita and runs from a ROM you already own.",
-    "author_ids": [
-      "claude-ai",
-      "zm2283145"
-    ],
-    "category_id": "ports",
-    "subcategory_ids": [
-      "arcade",
-      "racing"
-    ],
-    "version": "1.7.1",
-    "version_date": "2026-09-10",
-    "requirements": "- No Data",
-    "size": 4508877,
-    "status": "Verified",
-    "links": [
-      {
-        "type": "Download",
-        "name": "VPK",
-        "url": "https://archive.org/download/golden-balloon-psvita/GoldenBalloon-Vita-v1.7.1.vpk",
-        "size": 4508877,
-        "recommended": true
-      },
-      {
-        "type": "Game Files",
-        "name": "Game Files",
-        "url": "https://archive.org/download/golden-balloon-psvita/Game%20Files%20goldenballoon.zip",
-        "size": 12582912,
-        "extract_path": "ux0:data/"
-      },
-      {
-        "type": "Repository",
-        "name": "GitHub",
-        "url": "https://github.com/zm2283145/goldenballoon-vita-port"
-      }
-    ],
-    "icon": "https://archive.org/download/golden-balloon-psvita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/golden-balloon-psvita/shot0.png"
     ]
   },
   {
