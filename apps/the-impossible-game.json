@@ -1,0 +1,46 @@
+{
+  "id": "the-impossible-game",
+  "title_id": "PSVTIG001",
+  "name": "The Impossible Game",
+  "description": "Android to PS Vita port of The Impossible Game originally published by Fluke Games (FlukeDude)",
+  "long_description": "The Impossible Game is FlukeDude's rhythm-platformer, originally released for Android as 05133-the-impossible-1.5.2.apk (package com.flukedude.impossiblegame). This port runs the compiled native library (libimpossible.so — a small, self-contained proprietary engine that handles cube physics, collisions, procedural level generation, and rendering) directly on the PS Vita's ARM Cortex-A9 processor, using a dynamic loader (soloader) and an Android environment emulation layer (FalsoJNI). The UI and audio layers, which were Java on Android, have been fully reimplemented natively in C (menu.c, audio.c, texture.c, save.c) for zero-latency input and native performance.",
+  "author_ids": [
+    "metalsyntax"
+  ],
+  "category_id": "ports",
+  "subcategory_ids": [
+    "platformer",
+    "puzzle",
+    "strategy"
+  ],
+  "version": "1.0.0",
+  "version_date": "2026-09-16",
+  "requirements": "- kubridge installed as a kernel plugin (ur0:tai/config.txt under *KERNEL).\n- libshacccg.suprx installed in ur0:data/ (required by vitaGL's fixed-function shader compiler).",
+  "size": 800461,
+  "status": "Verified",
+  "links": [
+    {
+      "type": "Download",
+      "name": "VPK",
+      "url": "https://archive.org/download/the-impossible-game-ps-vita-port/theimpossiblegame%20v1.0.0.vpk",
+      "size": 800461,
+      "recommended": true
+    },
+    {
+      "type": "Game Files",
+      "name": "Game Files",
+      "url": "https://archive.org/download/the-impossible-game-ps-vita-port/Game%20Files.zip",
+      "size": 1992294,
+      "extract_path": "ux0:data/"
+    },
+    {
+      "type": "Repository",
+      "name": "Github",
+      "url": "https://github.com/MetalSyntax/The-Impossible-Game-vita"
+    }
+  ],
+  "icon": "https://archive.org/download/the-impossible-game-ps-vita-port/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/the-impossible-game-ps-vita-port/shot0.png"
+  ]
+}
