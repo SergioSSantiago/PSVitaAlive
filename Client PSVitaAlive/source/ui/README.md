@@ -125,6 +125,18 @@ Theme picker and Settings list use the same **stepped touch scroll** model as th
 
 Long titles use ellipsis / marquee with **parent clipping** so names do not spill outside card bounds while scrolling.
 
+Install/update status badges follow the same ownership rule. `drawInstallBadge()` receives the clipping rectangle owned by its caller:
+
+- catalog cards pass **card ∩ catalog panel**;
+- the detail header passes the **detail panel**;
+- badge background and breathing glow are clipped before drawing;
+- long localized `BADGE_UPDATE` strings keep their marquee, but its scissor is intersected with the caller clip;
+- after marquee drawing, the caller-owned clip is restored before returning.
+
+This prevents localized labels such as `ACTUALIZACIÓN`, `AGGIORNAMENTO` or `ОБНОВЛЕНИЕ` from appearing above/below the catalog while a card is partially entering or leaving the viewport during smooth scrolling. Do not restore a badge marquee to full-screen clipping.
+
+Update-state semantics, receipt compatibility and Vita `APP_VER` normalization are documented in [`../../../docs/UPDATE_DETECTION.md`](../../../docs/UPDATE_DETECTION.md).
+
 ## Plugin UI
 
 - Link row: **Installed** badge when file (+ config line when required) already present; press → toast, no re-download
