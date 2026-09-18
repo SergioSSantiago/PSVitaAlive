@@ -1,0 +1,69 @@
+name: Implement protection mascots
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/implement-protection-mascots.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply guarded client patch
+        run: python scripts/apply_protection_mascots.py
+
+      - name: Validate patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/apply_protection_mascots.py
+          git diff --check
+
+          grep -F 'source/ui/mascot_manager.cpp' 'Client PSVitaAlive/CMakeLists.txt'
+          grep -F '../assets/mascots=mascots' 'Client PSVitaAlive/CMakeLists.txt'
+          grep -F 'std::string mascotSelection = "random";' 'Client PSVitaAlive/include/installer/app_settings.hpp'
+          grep -F '"mascot_selection"' 'Client PSVitaAlive/source/installer/app_settings.cpp'
+          grep -F 'gProtectionMascotManager.render();' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
+          grep -F 'gProtectionMascotManager.scan();' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
+          grep -F 'constexpr int kRows = 11;' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp'
+          grep -F 'ux0:data/psvitaalive/mascots' 'Client PSVitaAlive/source/ui/mascot_manager.cpp'
+          grep -F 'app0:mascots' 'Client PSVitaAlive/source/ui/mascot_manager.cpp'
+          grep -F 'MASCOT_RANDOM=Random' 'Client PSVitaAlive/assets/lang/en.lang'
+          grep -F 'MASCOT_RANDOM=Aleatoria' 'Client PSVitaAlive/assets/lang/es.lang'
+
+          # protectionTick must now run in updateAndDraw, not inside the draw overlay.
+          test "$(grep -c 'protectionTick();' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp')" -eq 1
+          test "$(grep -c 'gProtectionMascotManager.render();' 'Client PSVitaAlive/source/ui/full_catalog_screen.cpp')" -eq 1
+
+          # The generated catalogs and catalog source records must never be part of this patch.
+          while IFS= read -r file; do
+            case "$file" in
+              'Client PSVitaAlive/'*) ;;
+              *) echo "Unexpected modified path: $file" >&2; exit 1 ;;
+            esac
+          done < <(git diff --name-only)
+
+      - name: Commit integration to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f scripts/apply_protection_mascots.py
+          rm -f .github/workflows/implement-protection-mascots.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No changes required.'
+            exit 0
+          fi
+          git commit -m 'feat(client): integrate protection-screen mascots'
+          git push origin HEAD:main
