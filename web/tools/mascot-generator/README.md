@@ -18,12 +18,16 @@ web/tools/mascot-generator/
 - Import an existing `mascot.json`.
 - Import a complete mascot ZIP.
 - Import PNG files separately and automatically match missing frame names when possible.
-- Split Sprite Sheets into individual PNG frames directly in the browser.
+- Split complete Sprite Sheets into individual PNG frames directly in the browser.
 - Accept Sprite Sheets that are already transparent or have a solid-color background.
-- Remove a solid background by enabling cleanup and tapping/clicking the background once.
-- Sample a 5 × 5 neighborhood around the touched point instead of requiring a dragged selection.
-- Configure RGB color tolerance and safer edge-connected background removal.
-- Preview the cleaned Sprite Sheet before using its detected frames.
+- Remove a solid background with one tap/click on a clean background area.
+- Automatically choose a background-color tolerance from the 5 × 5 sample.
+- Protect likely dark pixel-art outlines when cleaning a black/very-dark background.
+- Use Smart Sprite Detection by default instead of requiring manual technical thresholds.
+- Detect foreground using 8-direction connectivity and safely group nearby detached pieces.
+- Offer simple Automatic, Sensitive and Strict detection modes.
+- Keep numeric threshold controls under Expert settings for exceptional sheets.
+- Recover a missed frame with **Add missed sprite** and a single tap on the preview.
 - Send selected extracted sprites directly to any Idle or Run animation.
 - Download selected extracted sprites as a standalone ZIP when desired.
 - Create multiple Idle and Run animations.
@@ -43,42 +47,48 @@ web/tools/mascot-generator/
 
 The tool is fully client-side and works on GitHub Pages. Imported files are read locally by the browser and are not uploaded anywhere.
 
-Sprite Sheet cleanup is also local. The original image remains untouched; a temporary transparent PNG is generated in browser memory and passed into the existing splitter.
+Sprite Sheet cleanup and detection are also local. The original source remains untouched; temporary working images and extracted frames only exist in browser memory.
 
 No server, database or API is required.
 
 ## Sprite Sheet workflow
 
-The optional authoring flow is:
+For most users the optional authoring flow is intentionally short:
 
 ```text
 Sprite Sheet PNG
       ↓
-optional solid-background cleanup
+optional: Remove solid background
       ↓
-transparent working PNG
+one tap on background
       ↓
-connected-component detection
+Automatic Smart detection
       ↓
-select extracted sprites
+select frames
       ↓
 Idle / Run animation
       ↓
 normal mascot preview + validation + ZIP export
 ```
 
-For a sheet with a solid background:
+For transparent sheets, background cleanup is skipped.
+
+For solid-background sheets:
 
 1. Load the Sprite Sheet.
 2. Enable **Remove solid background**.
 3. Tap/click once on a clean background area.
-4. The browser averages a 5 × 5 neighborhood around that point.
-5. Matching pixels are made transparent using RGB tolerance `24` by default.
-6. Safer **edge-connected only** removal is enabled by default.
-7. The cleaned PNG is automatically sent to the existing Sprite Sheet detector.
-8. Review the detected sprites, choose the desired frames and send them to an animation.
+4. The browser samples a 5 × 5 neighborhood and chooses a safe tolerance automatically.
+5. A transparent working PNG is generated locally.
+6. Smart detection runs automatically.
+7. Review/select frames and send them to an animation.
 
-The user can tap another point at any time, change tolerance, switch between edge-connected and all-matching removal, or reset the sample to restore the untouched source.
+Users normally leave Detection mode on **Automatic — recommended**. If needed:
+
+- **Sensitive** finds smaller/detached frames;
+- **Strict** ignores more noise;
+- **Add missed sprite** lets the user tap one skipped frame directly;
+- **Expert** exposes the technical thresholds.
 
 Detailed behavior is documented in:
 
@@ -138,7 +148,7 @@ The internal mascot ID is the ZIP/folder name and is intentionally not duplicate
 - `idle_max_ms` must be greater than or equal to `idle_min_ms`.
 - Frame file names must be unique inside the mascot folder.
 
-Sprite Sheet cleanup does **not** extend or modify this schema. Sprite Sheets are only an authoring input; final mascot packages still contain individual PNG frames.
+Sprite Sheet authoring does **not** extend or modify this schema. Final mascot packages still contain individual PNG frames.
 
 ## ZIP implementation
 
@@ -151,7 +161,7 @@ The mascot importer supports:
 
 The ZIP parser reads the central directory and does not execute or extract files to the user's filesystem.
 
-The optional Sprite Sheet helper can also generate a standalone ZIP containing only the selected extracted PNG frames.
+The Sprite Sheet helper can also generate a standalone ZIP containing only selected extracted PNG frames.
 
 ## Preview model
 
