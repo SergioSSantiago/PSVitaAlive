@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mascot Generator — PS Vita Alive Store</title>
+    <meta name="description" content="Create, preview, validate, import and export PSVitaAlive screen-protection mascot packages directly in the browser.">
+    <link rel="stylesheet" href="../../css/main.css">
+    <link rel="stylesheet" href="mascot-generator.css">
+</head>
+<body>
+<header class="site-header">
+    <div class="container header-inner">
+        <a href="../../index.html" class="site-logo">
+            <img src="../../assets/logo/PSVitaAlive_Store_logo_text.png" alt="PSVitaAlive Store">
+        </a>
+        <nav class="main-nav" aria-label="Main navigation">
+            <a href="../../index.html">Home</a>
+            <a href="../../category.html">Categories</a>
+            <a href="../../authors.html">Authors</a>
+            <a href="../app-generator/index.html">App Generator</a>
+            <a class="active" href="index.html">Mascot Generator</a>
+        </nav>
+    </div>
+</header>
+
+<main class="tool-page">
+    <div class="container">
+        <div class="tool-hero">
+            <span class="hero-label">DEVELOPER TOOL</span>
+            <h1>Mascot Generator &amp; Preview</h1>
+            <p>Create PSVitaAlive screen-protection mascots without editing files manually. Import PNG frames, build Idle and Run animations, tune movement parameters, preview the exact 960 × 544 Vita play area, validate the package and export a ready-to-use ZIP.</p>
+            <div class="tool-actions">
+                <label class="button secondary-button file-button">Import mascot ZIP<input id="import-zip" type="file" accept=".zip,application/zip"></label>
+                <label class="button secondary-button file-button">Import mascot.json<input id="import-json" type="file" accept=".json,application/json"></label>
+                <label class="button secondary-button file-button">Import images<input id="import-images" type="file" accept="image/png,.png" multiple></label>
+                <button id="reset-project" class="button secondary-button" type="button">Reset</button>
+            </div>
+            <div class="notice info privacy-note"><strong>Local-only tool:</strong> images and ZIP files stay in your browser. Nothing is uploaded to PSVitaAlive or any server.</div>
+        </div>
+
+        <div class="generator-layout">
+            <form id="mascot-form" class="form-stack" novalidate>
+                <section class="form-card">
+                    <div class="card-heading">
+                        <h2>1. Identity</h2>
+                        <p>The folder ID is the stable internal identifier. The display name can change later without breaking saved settings.</p>
+                    </div>
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="mascot-id">Mascot ID <span>*</span></label>
+                            <input id="mascot-id" required pattern="[a-z0-9_-]+" placeholder="vitacat" autocomplete="off">
+                            <small>Lowercase letters, numbers, hyphens and underscores only. This becomes <code>assets/mascots/&lt;id&gt;/</code>.</small>
+                        </div>
+                        <div class="field">
+                            <label for="mascot-name">Display name <span>*</span></label>
+                            <input id="mascot-name" required placeholder="Vita Cat" autocomplete="off">
+                            <small>Name shown in the future PSVitaAlive Settings selector.</small>
+                        </div>
+                        <div class="field">
+                            <label for="native-facing">Native facing <span>*</span></label>
+                            <select id="native-facing">
+                                <option value="right" selected>Right</option>
+                                <option value="left">Left</option>
+                            </select>
+                            <small>Direction the original PNG sprites face. The preview mirrors them automatically when needed.</small>
+                        </div>
+                        <div class="field locked-size-field">
+                            <label>Sprite canvas</label>
+                            <div class="locked-size"><span>100 px</span><span>×</span><span>100 px</span></div>
+                            <small>Version 1 requires every frame to be exactly 100 × 100 PNG.</small>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="form-card">
+                    <div class="card-heading">
+                        <h2>2. Behaviour</h2>
+                        <p>These values are written to <code>mascot.json</code> and drive the live preview.</p>
+                    </div>
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="run-speed">Run speed <span>*</span></label>
+                            <div class="input-with-unit"><input id="run-speed" type="number" min="1" step="1" value="150"><span>px/s</span></div>
+                            <small>Movement speed in pixels per second.</small>
+                        </div>
+                        <div class="field">
+                            <label for="run-max">Run maximum <span>*</span></label>
+                            <div class="input-with-unit"><input id="run-max" type="number" min="100" step="100" value="4000"><span>ms</span></div>
+                            <small>Run ends when the destination is reached or this timeout expires.</small>
+                        </div>
+                        <div class="field">
+                            <label for="idle-min">Idle minimum <span>*</span></label>
+                            <div class="input-with-unit"><input id="idle-min" type="number" min="100" step="100" value="2000"><span>ms</span></div>
+                            <small>Shortest possible Idle state.</small>
+                        </div>
+                        <div class="field">
+                            <label for="idle-max">Idle maximum <span>*</span></label>
+                            <div class="input-with-unit"><input id="idle-max" type="number" min="100" step="100" value="5000"><span>ms</span></div>
+                            <small>Longest possible Idle state.</small>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="form-card animation-section" data-state="idle">
+                    <div class="section-head-row">
+                        <div class="card-heading">
+                            <h2>3. Idle animations</h2>
+                            <p>Idle animations loop while the mascot stays still. Add as many variants as you want.</p>
+                        </div>
+                        <button class="small-button add-animation" data-state="idle" type="button">+ Add Idle</button>
+                    </div>
+                    <div id="idle-animations" class="animation-list"></div>
+                </section>
+
+                <section class="form-card animation-section" data-state="run">
+                    <div class="section-head-row">
+                        <div class="card-heading">
+                            <h2>4. Run animations</h2>
+                            <p>Run animations loop while the mascot travels horizontally or diagonally toward a random destination.</p>
+                        </div>
+                        <button class="small-button add-animation" data-state="run" type="button">+ Add Run</button>
+                    </div>
+                    <div id="run-animations" class="animation-list"></div>
+                </section>
+
+                <section class="form-card export-card">
+                    <div class="card-heading">
+                        <h2>5. Validate &amp; export</h2>
+                        <p>The ZIP contains one ready-to-copy mascot folder with <code>mascot.json</code> and all referenced PNG frames.</p>
+                    </div>
+                    <div id="validation-summary" class="validation-summary" aria-live="polite"></div>
+                    <div class="download-row export-actions">
+                        <button id="download-json" type="button" class="button secondary-button">Download mascot.json</button>
+                        <button id="download-zip" type="button" class="button primary-button">Download ready ZIP</button>
+                    </div>
+                    <div class="export-path">ZIP layout: <code>&lt;id&gt;/mascot.json</code> + <code>&lt;id&gt;/*.png</code></div>
+                </section>
+            </form>
+
+            <aside class="preview-column">
+                <section class="preview-panel vita-preview-panel">
+                    <div class="preview-header">
+                        <div>
+                            <span class="eyebrow">LIVE PREVIEW</span>
+                            <h2>PS Vita protection mode</h2>
+                        </div>
+                        <button id="restart-preview" type="button" class="small-button">Restart</button>
+                    </div>
+                    <div class="preview-controls">
+                        <div class="mode-switch" role="group" aria-label="Preview state">
+                            <button type="button" class="preview-mode active" data-mode="auto">Auto</button>
+                            <button type="button" class="preview-mode" data-mode="idle">Idle</button>
+                            <button type="button" class="preview-mode" data-mode="run">Run</button>
+                        </div>
+                        <label class="compact-field">Animation<select id="preview-animation"><option value="random">Random</option></select></label>
+                    </div>
+                    <div class="vita-shell">
+                        <div class="vita-screen-wrap">
+                            <canvas id="vita-preview" width="960" height="544" aria-label="PS Vita mascot preview"></canvas>
+                        </div>
+                    </div>
+                    <div class="runtime-strip">
+                        <span><strong>State</strong> <b id="runtime-state">Idle</b></span>
+                        <span><strong>Facing</strong> <b id="runtime-facing">Right</b></span>
+                        <span><strong>Animation</strong> <b id="runtime-animation">—</b></span>
+                    </div>
+                    <div class="debug-options">
+                        <label class="checkbox-inline"><input id="debug-safe" type="checkbox" checked> Safe area</label>
+                        <label class="checkbox-inline"><input id="debug-bounds" type="checkbox"> Sprite bounds</label>
+                        <label class="checkbox-inline"><input id="debug-target" type="checkbox"> Run target</label>
+                    </div>
+                    <div class="preview-help"><strong>Simulation rules</strong><p>960 × 544 screen, 16 px safe margin, 100 × 100 sprite, normalized diagonal movement, 2–5 second Idle by default and Run until destination or timeout.</p></div>
+                </section>
+
+                <section class="preview-panel json-panel">
+                    <div class="preview-header">
+                        <div><span class="eyebrow">MANIFEST</span><h2>Generated mascot.json</h2></div>
+                        <button id="copy-json" type="button" class="small-button">Copy JSON</button>
+                    </div>
+                    <pre id="json-preview" aria-label="Generated mascot JSON">{}</pre>
+                </section>
+            </aside>
+        </div>
+    </div>
+</main>
+
+<footer class="site-footer"><div class="container">PSVitaAlive Store — Free and open PlayStation Vita homebrew catalog.</div></footer>
+<script src="mascot-generator.js"></script>
+</body>
+</html>
