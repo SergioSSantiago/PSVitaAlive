@@ -227,6 +227,7 @@ bool isNoiseLine(const std::string& line, const ErrorReportRequest& req) {
     if (!imageReport(req) && low.find("/cache/images/") != std::string::npos) return true;
     // Rendering/navigation chatter is almost never useful for install/download reports.
     if (req.kind != ErrorReportKind::Manual && low.find("[ui] frame") != std::string::npos) return true;
+    if (req.kind != ErrorReportKind::Manual && low.find("[ui] error report requested") != std::string::npos) return true;
     return false;
 }
 
@@ -289,12 +290,15 @@ bool lineMatchesScope(const std::string& low, ReportScope scope) {
 }
 
 bool lineIsStructural(const std::string& low, ReportScope scope) {
-    if (scope == ReportScope::Network || scope == ReportScope::Zip || scope == ReportScope::Install) {
+    if (scope == ReportScope::Network) {
+        // Do not pull Installer/VPK lifecycle lines into a payload download failure.
+        return low.find("begin url=") != std::string::npos;
+    }
+    if (scope == ReportScope::Zip || scope == ReportScope::Install) {
         return low.find("install all step") != std::string::npos ||
                low.find("link install") != std::string::npos ||
                low.find("request job=") != std::string::npos ||
                low.find("installing job=") != std::string::npos ||
-               low.find("begin url=") != std::string::npos ||
                low.find("begin path=") != std::string::npos ||
                low.find("detect format=") != std::string::npos;
     }
@@ -365,8 +369,7 @@ std::string compactExcerpt(
         if (fpHit) score += 90;
         if (strong) score += 55;
         if (scopeHit) score += 20;
-        if (titleHit) score += 25;
-        if (low.find("[ui] error report requested") != std::string::npos) score -= 15;
+        if (titleHit && (file.empty() || scope == ReportScope::Zip || scope == ReportScope::Install)) score += 25;
         if (score > bestScore || (score == bestScore && score > 0 && i > best)) {
             bestScore = score;
             best = i;
@@ -395,7 +398,9 @@ std::string compactExcerpt(
         const bool fileHit = !file.empty() && low.find(file) != std::string::npos;
         const bool fpHit = lineMatchesFingerprint(low, fingerprints);
         const bool titleHit = !titleId.empty() && low.find(titleId) != std::string::npos;
-        const bool relevant = fileHit || fpHit || titleHit || lineHasStrongError(low) ||
+        const bool titleRelevant = titleHit &&
+            (file.empty() || scope == ReportScope::Zip || scope == ReportScope::Install);
+        const bool relevant = fileHit || fpHit || titleRelevant || lineHasStrongError(low) ||
                               lineMatchesScope(low, scope) || lineIsStructural(low, scope);
         if (!relevant && scope != ReportScope::Manual) continue;
         selected.emplace_back(i, lines[i]);
