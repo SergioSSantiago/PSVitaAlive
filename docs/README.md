@@ -15,9 +15,10 @@ Supplementary documentation for architecture, pipelines and client behaviour.
 |----------|--------|
 | Root `README.md` | Project overview, public JSON API, multi-catalog, recommended Vita setup, download/install locks, commercial PKG routing, client feature summary |
 | `docs/BGDL_PREPARATION_FRAME.md` | **BGDL preparation-frame handoff**: keep ShellSvc enqueue on the main thread while presenting a visible Preparing overlay first |
+| `docs/DOWNLOAD_RESILIENCE.md` | **In-app download + archive hardening**: HTTP response isolation, retries, safe Range resume, MediaFire re-resolution, Archive.org failover, runtime free-space guard, metadata throttling, large ZIP / ZIP64 extraction and diagnostics |
 | `docs/IMAGE_CACHE.md` | **Image cache v3**: per-resource identity, H/PV/PSP/PS1 scopes, 256 buckets, URL-change replacement, startup 200 MiB → ~40 MiB trim, loading-bar progress, localization and validation |
 | `docs/MULTILANGUAGE.md` | Current UI localization architecture, packaged languages, system/manual selection, English fallback and startup localization ordering |
-| `docs/NETWORK_TLS.md` | libcurl / OpenSSL / archive.org failover / optional mbedTLS |
+| `docs/NETWORK_TLS.md` | libcurl / OpenSSL / Archive.org TLS failover / optional mbedTLS; TLS-specific companion to `DOWNLOAD_RESILIENCE.md` |
 | `docs/PLUGIN_UPDATES.md` | **Planned** remote plugin update system (manifest / versioned Plugin links) — deferred |
 | `docs/UPDATE_DETECTION.md` | Installed/update version detection notes |
 | `Client PSVitaAlive/README.md` | Native client overview, runtime data and subsystem behaviour |
@@ -47,6 +48,26 @@ startup maintenance + FullCatalogScreen progress
 
 Do not add cache-only fields to the public catalog JSON schema. The cache metadata remains an in-memory client implementation detail.
 
+## Download / archive documentation rule
+
+The cross-module resilience behaviour is documented in [`DOWNLOAD_RESILIENCE.md`](DOWNLOAD_RESILIENCE.md), with TLS-specific details in [`NETWORK_TLS.md`](NETWORK_TLS.md).
+
+When changing any of these components, keep the docs synchronized:
+
+```text
+DownloadManager
+      ↓
+HttpClient / provider resolver
+      ↓
+payload.part + resume metadata
+      ↓
+FormatDetector / InstallController
+      ↓
+ZipExtractor / installer
+```
+
+Do not weaken strict Range, payload-size or ZIP-integrity checks merely to make a failing provider appear successful. Provider-specific recovery should preserve the same integrity rules.
+
 ## Change classification
 
 When fixing a bug, identify the layer:
@@ -61,6 +82,7 @@ When fixing a bug, identify the layer:
 Patch the responsible layer—not a generated catalog—whenever possible.
 
 - [BGDL_PREPARATION_FRAME.md](BGDL_PREPARATION_FRAME.md) — main-thread BGDL enqueue with one-frame visible preparation handoff
+- [DOWNLOAD_RESILIENCE.md](DOWNLOAD_RESILIENCE.md) — hardened HTTP downloads, retries, resume, providers, storage guards and ZIP/archive integrity
 - [IMAGE_CACHE.md](IMAGE_CACHE.md) — client image cache v3 / disk policy / per-image replacement
 - [MULTILANGUAGE.md](MULTILANGUAGE.md) — localization architecture and current packaged languages
-- [NETWORK_TLS.md](NETWORK_TLS.md) — libcurl / OpenSSL / archive.org failover / optional mbedTLS
+- [NETWORK_TLS.md](NETWORK_TLS.md) — libcurl / OpenSSL / Archive.org TLS failover / optional mbedTLS
