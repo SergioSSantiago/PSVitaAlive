@@ -1,99 +1,209 @@
 # PSVitaAlive — TLS / libcurl notes
 
+This document covers the TLS-specific behaviour of the native client network stack.
+
+For the complete download pipeline — retries, Range validation, MediaFire re-resolution, free-space guards, ZIP/ZIP64 integrity and archive extraction — see [`DOWNLOAD_RESILIENCE.md`](DOWNLOAD_RESILIENCE.md).
+
 ## Default stack (production today)
 
-- **libcurl** from VitaSDK (e.g. 8.x)
-- **OpenSSL 1.0.2** (EOL) as TLS backend
-- App sets `CURLOPT_SSL_VERIFYPEER/HOST = 0` (no system CA store on Vita)
+- **libcurl** from VitaSDK (8.x-class package)
+- **OpenSSL 1.0.2** Vita port as the normal TLS backend
+- App sets `CURLOPT_SSL_VERIFYPEER/HOST = 0` on device because the Vita environment does not provide a modern CA setup that is reliable for this client path
 
-This works for GitHub and many hosts. Some **Internet Archive** storage nodes (`dn*.ca.archive.org`) fail TLS handshakes or drop the connection on this stack.
+This works for GitHub and many hosts. Some **Internet Archive** storage nodes, especially `dn*` / `.ca.archive.org` edges, can fail TLS handshakes or drop connections on the Vita OpenSSL stack.
 
-## Runtime mitigations (always on)
+The client therefore treats provider failover as a normal resilience mechanism rather than assuming every Archive.org storage edge behaves identically.
 
-1. Re-apply verify-off + clear `CAINFO`/`CAPATH` every download attempt.
-2. Keep a `CURLOPT_ERRORBUFFER` for the detailed backend error text returned by libcurl/OpenSSL.
-3. Read `CURLINFO_SSL_VERIFYRESULT` after each transfer attempt for diagnostics.
-4. Treat direct SSL errors as TLS failures. For Internet Archive, also treat transport failures such as `CURLE_RECV_ERROR` (56) as TLS-like when the error buffer explicitly contains SSL/TLS/certificate/OpenSSL/X509 diagnostics, or when curl 56 has a non-zero SSL verify result.
-5. On an archive.org TLS-like failure, fetch `https://archive.org/metadata/<id>` and retry on alternate hosts (`server` / `d1` / `d2`), preferring non-`dn` / non-`.ca` edges.
-6. After TLS-like failures, force a fresh connection and disable SSL session reuse for the retry. This avoids sticking to a bad connection/session while leaving normal successful transfers reusable.
-7. Multi-gigabyte resumes use `CURLOPT_RESUME_FROM_LARGE` (`curl_off_t`) so offsets beyond the Vita's 32-bit `long` range are not truncated.
-8. A resumed HTTP 206 response is accepted only when `Content-Range` starts exactly at the requested offset. If a server ignores Range and returns 200, the partial is truncated and the transfer restarts from zero instead of appending corrupt data.
-9. Before declaring success, the downloaded file size is compared with the authoritative remote total when `Content-Length` or `Content-Range` supplied one.
+---
 
-Useful diagnostics in `ux0:data/psvitaalive/logs/session.log`:
+## Runtime TLS mitigations
 
-- `attempt ... tls_like=... ssl_verify=... detail=...`
-- `archive failover built N alternate URL(s)`
-- `archive failover switch curl=... ssl_verify=... -> https://...`
-- `retry resume from absolute=...`
-- `RESULT ... effective_url=... curl_detail=...`
+The in-app download path applies the following rules:
 
-### Why curl 56 matters
+1. Re-apply Vita SSL defaults on **every transfer attempt**.
+2. Clear `CAINFO` / `CAPATH` when using the verify-off device path.
+3. Keep a `CURLOPT_ERRORBUFFER` for detailed backend diagnostics.
+4. Read `CURLINFO_SSL_VERIFYRESULT` after attempts for logging and classification.
+5. Alternate between TLS 1.2 and libcurl/OpenSSL default negotiation across retries instead of permanently forcing one mode.
+6. After serious TLS/transport failures, force a fresh connection and avoid reusing the broken SSL session.
+7. Keep initial URLs and redirects restricted to **HTTP/HTTPS**.
+8. Prefer IPv4 and HTTP/1.1 on the Vita client path because the Vita/Vita3K stack is more predictable there.
 
-`CURLE_RECV_ERROR` is a receive/transport error, not one of libcurl's dedicated certificate-verification return codes. On the Vita OpenSSL stack we have observed curl 56 accompanied by explicit certificate diagnostics such as `self signed certificate in certificate chain`. The client therefore does **not** reinterpret every curl 56 as SSL: it only enables the TLS-specific Archive.org failover when the backend diagnostics support that conclusion.
+Normal successful transfers can still reuse connections. Fresh-connect/no-reuse is a recovery measure, not a permanent setting for every request.
 
-## ZIP/download integrity
+---
 
-The downloader and ZIP extractor deliberately keep strict integrity checks instead of trying to hide damaged transfers:
+## Internet Archive failover
 
-- interrupted downloads resume from the absolute number of bytes already on disk;
-- invalid/mismatched HTTP ranges clean-restart instead of appending;
-- ZIP/ZIP64 archives are checked for a valid beginning and an EOCD/ZIP64 marker near EOF before extraction;
-- large ZIP files use a seekable `sceIo*`-backed libzip source with 64-bit Vita file offsets;
-- extraction is streamed in small chunks rather than loading the archive or an entry into RAM;
-- path traversal (`..`, absolute paths, mount-colon paths) is rejected;
-- the extractor checks available `ux0:` space against the summed uncompressed size plus a filesystem margin;
-- partial output files are removed if `zip_fread` or `sceIoWrite` fails;
-- each extracted entry is checked against the uncompressed size reported by `zip_stat` when available.
+For `archive.org/download/<identifier>/...` URLs, the client can resolve alternate storage hosts from:
 
-These behaviors are intentionally conservative for PS Vita memory limits and multi-gigabyte game-data ZIPs.
+```text
+https://archive.org/metadata/<identifier>
+```
+
+Candidate URLs are built from metadata such as:
+
+```text
+server
+d1
+d2
+```
+
+When possible, the client prefers storage nodes that do not look like problematic `dn*` / `.ca` edges.
+
+### Failover triggers
+
+Archive failover is broader than certificate errors alone.
+
+It may rotate to another storage host after:
+
+- direct SSL connect / certificate errors;
+- connect failure;
+- timeout;
+- receive/send error;
+- empty response;
+- partial-file transport failure;
+- server-side `5xx` responses.
+
+This matters because the same bad Archive edge can present differently depending on exactly where the connection fails. A broken TLS/storage path may appear as curl 35, curl 56, timeout, partial transfer or a server-side error.
+
+### What does not change
+
+Failover changes the transport host, not the logical item being downloaded.
+
+The original Archive.org item/path remains the source identity. The client does not silently switch to a different file or bypass the normal Range/size integrity checks.
+
+---
+
+## Why curl 56 still matters
+
+`CURLE_RECV_ERROR` (`curl 56`) is a receive/transport error, not a dedicated certificate-verification code.
+
+On the Vita OpenSSL stack we have observed curl 56 accompanied by explicit certificate/TLS diagnostics such as a self-signed-chain error. The client records both:
+
+```text
+curl result
+CURL_ERRORBUFFER text
+CURLINFO_SSL_VERIFYRESULT
+```
+
+That information is useful because it explains when a nominal receive failure is actually tied to the TLS backend.
+
+However, Archive.org failover no longer depends exclusively on proving that a receive error is TLS-related. Transport-like failures can rotate storage edges even without certificate text, because the practical recovery action is the same: stop retrying the same broken edge.
+
+---
+
+## Long-transfer connection handling
+
+Large Vita downloads can run for a long time over Wi-Fi.
+
+The client enables TCP keepalive and, when supported by the linked libcurl, configures keepalive idle/interval values so half-open Wi-Fi/NAT connections are detected earlier.
+
+Low-speed detection is enabled to prevent an indefinitely dead transfer. Archive.org uses a more patient low-speed window because public archive edges may pause temporarily during large transfers.
+
+User cancellation is also checked through libcurl's transfer-progress callback (`XFERINFO`), so cancellation remains responsive even if the connection is established but no body bytes are currently arriving.
+
+---
+
+## Resume and TLS interaction
+
+TLS recovery must not weaken file-integrity rules.
+
+The client still requires:
+
+- `CURLOPT_RESUME_FROM_LARGE` / `curl_off_t` for offsets beyond 2 GiB;
+- a valid `206 Content-Range` beginning at the requested offset;
+- clean restart when a server ignores Range and returns a full `200`;
+- bounded fallback for stale/invalid resume state;
+- validator-aware resume (`If-Range`) when the same resolved resource has an ETag/Last-Modified value.
+
+When a provider changes the resolved URL — for example a refreshed MediaFire CDN URL — validators tied to the previous direct URL are cleared before attempting resume.
+
+See [`DOWNLOAD_RESILIENCE.md`](DOWNLOAD_RESILIENCE.md) for the complete resume state machine.
+
+---
+
+## Useful diagnostics
+
+Primary log:
+
+```text
+ux0:data/psvitaalive/logs/session.log
+```
+
+Useful network/TLS markers include:
+
+```text
+attempt ... tls_like=... ssl_verify=... detail=...
+archive failover built N alternate URL(s)
+archive failover switch HTTP=... -> https://...
+archive failover switch curl=... ssl_verify=... -> https://...
+retry resume from absolute=...
+resume validator attached via If-Range
+RESULT curl=... status=... ssl_verify=... tls_like=... effective_url=... curl_detail=...
+```
+
+When investigating a field report, keep the **whole retry sequence**. The final curl code alone may not reveal which Archive edge, redirect or TLS session failed earlier.
+
+---
+
+## Download / archive integrity
+
+TLS retries are only one layer. The downloader and ZIP extractor keep strict integrity checks after the network succeeds:
+
+- response metadata is isolated per HTTP response;
+- `4xx` / `5xx` bodies never become payload bytes;
+- invalid/mismatched HTTP ranges are rejected;
+- authoritative remote size is enforced with a small safety margin;
+- long downloads periodically re-check free `ux0:` space;
+- ZIP/ZIP64 archives are checked for EOCD/ZIP64 completion before extraction;
+- large ZIPs use a seekable `sceIo*` libzip source;
+- unsupported ZIP compression methods are rejected before extraction starts;
+- path traversal is rejected;
+- partial extracted files are removed after read/write failures;
+- close/finalization errors are checked before an entry/archive is considered complete.
+
+The detailed rules and validation checklist live in [`DOWNLOAD_RESILIENCE.md`](DOWNLOAD_RESILIENCE.md).
+
+---
 
 ## Official library references
 
-libcurl:
+### libcurl
 
-- Error codes (`CURLE_RECV_ERROR`, SSL errors): https://curl.se/libcurl/c/libcurl-errors.html
+- Error codes: https://curl.se/libcurl/c/libcurl-errors.html
 - Detailed error buffer: https://curl.se/libcurl/c/CURLOPT_ERRORBUFFER.html
 - Peer verification: https://curl.se/libcurl/c/CURLOPT_SSL_VERIFYPEER.html
 - SSL verification result: https://curl.se/libcurl/c/CURLINFO_SSL_VERIFYRESULT.html
 - 64-bit resume offset: https://curl.se/libcurl/c/CURLOPT_RESUME_FROM_LARGE.html
+- Transfer progress / cancellation: https://curl.se/libcurl/c/CURLOPT_XFERINFOFUNCTION.html
+- Allowed initial protocols: https://curl.se/libcurl/c/CURLOPT_PROTOCOLS_STR.html
+- Allowed redirect protocols: https://curl.se/libcurl/c/CURLOPT_REDIR_PROTOCOLS_STR.html
 - SSL session cache: https://curl.se/libcurl/c/CURLOPT_SSL_SESSIONID_CACHE.html
-- Fresh connections / no reuse: https://curl.se/libcurl/c/CURLOPT_FRESH_CONNECT.html and https://curl.se/libcurl/c/CURLOPT_FORBID_REUSE.html
+- Fresh connection: https://curl.se/libcurl/c/CURLOPT_FRESH_CONNECT.html
+- Forbid connection reuse: https://curl.se/libcurl/c/CURLOPT_FORBID_REUSE.html
+- TCP keepalive: https://curl.se/libcurl/c/CURLOPT_TCP_KEEPALIVE.html
 
-libzip:
+### libzip
 
 - Reference documentation: https://libzip.org/documentation/
+- Compression support query: https://libzip.org/documentation/zip_compression_method_supported.html
 - Reading entry data: https://libzip.org/documentation/zip_fread.html
 - File error handling: https://libzip.org/documentation/zip_file_get_error.html
 - Custom sources: https://libzip.org/documentation/zip_source_function.html
 - Source reads: https://libzip.org/documentation/zip_source_read.html
-- ZIP error codes: https://libzip.org/documentation/zip_errors.html
+- ZIP errors: https://libzip.org/documentation/zip_errors.html
 
-## Download integrity hardening
+---
 
-The production client also:
+## Optional mbedTLS-backed curl (build-time)
 
-- parses libcurl header callbacks using the explicit byte count (header lines are not NUL-terminated);
-- resets response metadata at every HTTP status line so redirect/auth headers cannot contaminate the final response;
-- discards final 4xx/5xx response bodies instead of writing HTML/error payloads into `.part` files;
-- retries additional transient HTTP statuses (408/425/500/521/523 in addition to 429/502/503/504/520/522/524);
-- enables TCP keepalive tuning for long downloads when supported by the linked libcurl;
-- only enforces size-overrun guards after a real Content-Length/Content-Range has been observed;
-- throttles metadata writes to reduce storage churn during multi-GB transfers;
-- re-resolves expired MediaFire URLs while preserving the existing partial file and attempts a safe Range resume;
-- checks free space periodically while a long transfer is active.
-- uses libcurl's XFERINFO progress callback so cancellation is still observed while a connection is stalled;
-- restricts initial URLs and redirects to HTTP/HTTPS only;
-- rotates Archive.org storage hosts for transport failures and server-side 5xx responses, not only explicit TLS failures.
-
-ZIP extraction caches archive size once, rejects aggregate-size overflow, and checks both `zip_fclose()` and Vita file-close results before declaring an entry complete.
-
-## Optional: mbedTLS-backed curl (build-time)
+The client keeps an optional mbedTLS-backed curl build path for experimentation:
 
 ```bash
 # On the build machine (VitaSDK)
 vdpm mbedtls
-vdpm curl-mbedtls   # if available on your channel
+vdpm curl-mbedtls   # when available on the selected VitaSDK channel
 
 cd "Client PSVitaAlive"
 rm -rf build && mkdir build && cd build
@@ -101,10 +211,16 @@ cmake .. -DPSVITAALIVE_USE_MBEDTLS_CURL=ON
 cmake --build . -j$(nproc)
 ```
 
-If `curl-mbedtls` is not installed, the default OpenSSL link remains the safe path (`-DPSVITAALIVE_USE_MBEDTLS_CURL=OFF`).
+The production default remains the OpenSSL path until a side build has been validated across the hosts PSVitaAlive actually uses.
+
+Do not switch the official client to a different TLS backend merely because one host works better in isolation; test GitHub, MediaFire, Archive.org and representative catalog/CDN URLs first.
+
+---
 
 ## Recommendation
 
-1. Ship with **archive.org failover** as the default production path.
-2. Keep the strict range/size checks enabled; they prevent silent corruption after retries.
-3. Test mbedTLS on a side build before switching the official release.
+1. Keep **Archive.org storage-edge failover** enabled by default.
+2. Keep strict Range / size / payload-integrity rules enabled across all retries.
+3. Treat provider-specific recovery as transport recovery, not permission to accept ambiguous bytes.
+4. Preserve full session logs for rare field failures so the next fix can be based on evidence instead of guesswork.
+5. Test mbedTLS separately before considering any production switch.
