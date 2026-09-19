@@ -23,6 +23,7 @@ Supplementary documentation for architecture, pipelines and client behaviour.
 | `docs/UPDATE_DETECTION.md` | Installed/update version detection notes |
 | `Client PSVitaAlive/README.md` | Native client overview, runtime data and subsystem behaviour |
 | `Client PSVitaAlive/source/catalog/README.md` | Multi-catalog cache, zRIF sidecar and image-cache tagging responsibilities |
+| `Client PSVitaAlive/source/network/README.md` | Native network module: HttpClient, DownloadManager, provider recovery, resume invariants, runtime guards and diagnostics |
 | `Client PSVitaAlive/source/installer/README.md` | VPK / BGDL PKG, Plugin + tai config, Adrenaline unpack, ZIP integrity, keep-awake + shell locks |
 | `Client PSVitaAlive/source/ui/README.md` | Native UI, image cache integration, loading overlays, LOCKED UI, themes, fonts, i18n hooks, essential plugins modal |
 | `Client PSVitaAlive/source/update/README.md` | Self-update (PSVAUPDT1) handoff rules |
@@ -50,7 +51,7 @@ Do not add cache-only fields to the public catalog JSON schema. The cache metada
 
 ## Download / archive documentation rule
 
-The cross-module resilience behaviour is documented in [`DOWNLOAD_RESILIENCE.md`](DOWNLOAD_RESILIENCE.md), with TLS-specific details in [`NETWORK_TLS.md`](NETWORK_TLS.md).
+The cross-module resilience behaviour is documented in [`DOWNLOAD_RESILIENCE.md`](DOWNLOAD_RESILIENCE.md), with TLS-specific details in [`NETWORK_TLS.md`](NETWORK_TLS.md) and module-level implementation notes in [`../Client PSVitaAlive/source/network/README.md`](../Client%20PSVitaAlive/source/network/README.md).
 
 When changing any of these components, keep the docs synchronized:
 
