@@ -215,23 +215,31 @@ bool DownloadManager::runJob(DownloadJob& job) {
     saveMetadata(job);
     activeJobId_ = job.id;
 
-    // Soft size limit: catalog/HTML sizes are often approximate.
-    // Abort only well past the hint (35% + 64 MiB), not on a small overrun.
-    auto sizeHardLimit = [](uint64_t expected) -> uint64_t {
-        if (expected == 0) return 0;
-        const uint64_t pct = expected / 100ULL * 35ULL;
-        const uint64_t floor = 64ULL * 1024ULL * 1024ULL;
-        return expected + (pct > floor ? pct : floor);
+    // Catalog and MediaFire page sizes are hints. Only enforce a hard overrun
+    // after HttpClient has received an authoritative Content-Length/Content-Range.
+    auto sizeHardLimit = [](uint64_t total) -> uint64_t {
+        if (total == 0) return 0;
+        const uint64_t slack = 8ULL * 1024ULL * 1024ULL;
+        return total > (~0ULL - slack) ? ~0ULL : total + slack;
     };
 
     bool sizeLimitHit = false;
+    bool diskSpaceHit = false;
+    bool remoteTotalKnown = false;
     uint64_t lastSaved = offset;
+    uint64_t lastSpaceCheck = 0;
+    constexpr uint64_t kMetadataSaveStep = 8ULL * 1024ULL * 1024ULL;
+    constexpr uint64_t kSpaceCheckStep = 32ULL * 1024ULL * 1024ULL;
+    constexpr uint64_t kFreeSpaceReserve = 16ULL * 1024ULL * 1024ULL;
     auto progress = [&](const HttpProgress& p) {
         job.downloadedSize = p.absoluteDownloaded;
         job.bytesPerSecond = p.bytesPerSecond;
-        // Prefer real Content-Length when the server sends it.
-        if (p.total > 0) job.expectedSize = p.total;
-        const uint64_t limit = sizeHardLimit(job.expectedSize);
+        // p.total is only non-zero when HttpClient observed a remote length.
+        if (p.total > 0) {
+            job.expectedSize = p.total;
+            remoteTotalKnown = true;
+        }
+        const uint64_t limit = remoteTotalKnown ? sizeHardLimit(job.expectedSize) : 0;
         if (limit > 0 && job.downloadedSize > limit) {
             sizeLimitHit = true;
             job.cancelRequested = true;
@@ -242,6 +250,23 @@ bool DownloadManager::runJob(DownloadJob& job) {
                 (unsigned long long)job.expectedSize,
                 (unsigned long long)limit);
             diagnostics::log(m);
+        }
+        if (!diskSpaceHit &&
+            (lastSpaceCheck == 0 || job.downloadedSize < lastSpaceCheck ||
+             job.downloadedSize - lastSpaceCheck >= kSpaceCheckStep)) {
+            uint64_t freeB = 0, totalB = 0;
+            if (StorageManager::queryUx0Space(freeB, totalB) && freeB < kFreeSpaceReserve) {
+                diskSpaceHit = true;
+                job.cancelRequested = true;
+                char m[180];
+                sceClibSnprintf(m, sizeof(m),
+                    "[DownloadManager] low-space guard free=%llu downloaded=%llu reserve=%llu",
+                    (unsigned long long)freeB,
+                    (unsigned long long)job.downloadedSize,
+                    (unsigned long long)kFreeSpaceReserve);
+                diagnostics::log(m);
+            }
+            lastSpaceCheck = job.downloadedSize;
         }
         if (onProgress_) {
             DownloadProgressEvent ev;
@@ -254,7 +279,8 @@ bool DownloadManager::runJob(DownloadJob& job) {
             ev.state = DownloadState::Downloading;
             onProgress_(ev);
         }
-        if (job.downloadedSize >= lastSaved + 256 * 1024 || job.downloadedSize < lastSaved) {
+        if ((job.downloadedSize >= lastSaved && job.downloadedSize - lastSaved >= kMetadataSaveStep) ||
+            job.downloadedSize < lastSaved) {
             saveMetadata(job);
             lastSaved = job.downloadedSize;
         }
@@ -321,18 +347,33 @@ bool DownloadManager::runJob(DownloadJob& job) {
             const int delayMs = isArchiveUrl ? (1000 * outer) : 500;
             sceKernelDelayThread(delayMs * 1000);
             if (mediafire) {
-                st.removeFile(job.temporaryPath);
-                offset = 0;
-                job.downloadedSize = 0;
+                // MediaFire direct URLs expire, but the bytes already downloaded do not.
+                // Re-resolve the page and attempt a normal Range resume against the new
+                // direct URL. HttpClient will safely truncate/restart if that CDN edge
+                // ignores Range or serves a changed resource.
+                const int64_t sz = st.fileSize(job.temporaryPath);
+                offset = sz > 0 ? static_cast<uint64_t>(sz) : 0;
+                job.downloadedSize = offset;
                 std::string direct;
                 std::string mfErr;
                 uint64_t mfSize = 0;
                 if (resolveMediaFireDirectUrl(http_, job.url, direct, mfErr, &mfSize) && !direct.empty()) {
                     effectiveUrl = direct;
                     if (mfSize > 0) job.expectedSize = mfSize;
-                    diagnostics::log("[DownloadManager] MediaFire re-resolved for retry");
+                    job.validatorUrl.clear();
+                    job.etag.clear();
+                    job.lastModified.clear();
+                    remoteTotalKnown = false;
+                    char mfMsg[180];
+                    sceClibSnprintf(mfMsg, sizeof(mfMsg),
+                        "[DownloadManager] MediaFire re-resolved resume_offset=%llu expected_hint=%llu",
+                        (unsigned long long)offset,
+                        (unsigned long long)job.expectedSize);
+                    diagnostics::log(mfMsg);
                 } else {
                     diagnostics::log(std::string("[DownloadManager] MediaFire re-resolve failed: ") + mfErr);
+                    if (outer + 1 < outerAttempts) continue;
+                    break;
                 }
             } else if (job.downloadedSize == 0) {
                 st.removeFile(job.temporaryPath);
@@ -343,6 +384,9 @@ bool DownloadManager::runJob(DownloadJob& job) {
                 job.downloadedSize = offset;
             }
             sizeLimitHit = false;
+            diskSpaceHit = false;
+            remoteTotalKnown = false;
+            lastSpaceCheck = 0;
             job.cancelRequested = false;
         }
         // Validators are only meaningful for the same resolved resource. MediaFire
@@ -370,6 +414,16 @@ bool DownloadManager::runJob(DownloadJob& job) {
     job.lastHttpStatus = http_.lastStatusCode();
     activeJobId_.clear();
 
+    if (diskSpaceHit) {
+        st.removeFile(job.temporaryPath);
+        job.downloadedSize = 0;
+        job.state = DownloadState::Failed;
+        job.lastError = "not enough free space while downloading";
+        saveMetadata(job);
+        st.removeFile(job.finalPath);
+        diagnostics::log("[DownloadManager] aborted by runtime low-space guard");
+        return false;
+    }
     if (sizeLimitHit) {
         st.removeFile(job.temporaryPath);
         job.downloadedSize = 0;

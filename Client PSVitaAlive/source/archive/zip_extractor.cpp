@@ -442,9 +442,9 @@ ZipResult ZipExtractor::extract(
     ZipProgress prog;
     prog.entriesTotal = static_cast<uint64_t>(numEntries);
 
-        // Pre-scan: sum uncompressed sizes, log large/unusual entries, then verify free space.
+    // Pre-scan: sum uncompressed sizes, log large/unusual entries, then verify free space.
     uint64_t uncompressedTotal = 0;
-    const int64_t archiveSize = st.fileSize(zipPath);
+    const uint64_t archiveDiskSize = diskFileSize64(zipPath);
     for (zip_int64_t i = 0; i < numEntries; ++i) {
         zip_stat_t zs;
         zip_stat_init(&zs);
@@ -452,8 +452,14 @@ ZipResult ZipExtractor::extract(
             const size_t len = std::strlen(zs.name);
             const bool isDir = len > 0 && zs.name[len - 1] == '/';
             if (!isDir && (zs.valid & ZIP_STAT_SIZE) && zs.size > 0) {
-                uncompressedTotal += static_cast<uint64_t>(zs.size);
-                prog.bytesTotal += static_cast<uint64_t>(zs.size);
+                const uint64_t entrySize = static_cast<uint64_t>(zs.size);
+                if (entrySize > (~0ULL - uncompressedTotal) || entrySize > (~0ULL - prog.bytesTotal)) {
+                    setError(std::string("ZIP uncompressed size overflow at entry: ") + zs.name);
+                    zip_close(za);
+                    return ZipResult::InvalidEntry;
+                }
+                uncompressedTotal += entrySize;
+                prog.bytesTotal += entrySize;
             }
             if ((zs.valid & ZIP_STAT_COMP_METHOD) &&
                 zs.comp_method != 0 && zs.comp_method != 8) {
@@ -484,12 +490,12 @@ ZipResult ZipExtractor::extract(
         const bool haveSpace = StorageManager::queryUx0Space(freeB, totalB);
         // Margin: 32 MiB + 5% of uncompressed for FS overhead.
         const uint64_t margin = (32ULL * 1024ULL * 1024ULL) + (uncompressedTotal / 20ULL);
-        const uint64_t required = uncompressedTotal + margin;
+        const uint64_t required = uncompressedTotal > (~0ULL - margin) ? ~0ULL : uncompressedTotal + margin;
         char spaceMsg[320];
         sceClibSnprintf(
             spaceMsg, sizeof(spaceMsg),
-            "[ZipExtractor] precheck archive=%lld uncomp=%llu required~=%llu free=%llu",
-            (long long)archiveSize,
+            "[ZipExtractor] precheck archive=%llu uncomp=%llu required~=%llu free=%llu",
+            (unsigned long long)archiveDiskSize,
             (unsigned long long)uncompressedTotal,
             (unsigned long long)required,
             (unsigned long long)(haveSpace ? freeB : 0ULL));
@@ -498,8 +504,8 @@ ZipResult ZipExtractor::extract(
             char err[360];
             sceClibSnprintf(
                 err, sizeof(err),
-                "not enough free space: archive=%lld uncomp=%llu required~=%llu free=%llu",
-                (long long)archiveSize,
+                "not enough free space: archive=%llu uncomp=%llu required~=%llu free=%llu",
+                (unsigned long long)archiveDiskSize,
                 (unsigned long long)uncompressedTotal,
                 (unsigned long long)required,
                 (unsigned long long)freeB);
@@ -569,7 +575,6 @@ std::vector<char> buffer(EXTRACT_CHUNK);
         }
 
         const unsigned method = (zs.valid & ZIP_STAT_COMP_METHOD) ? static_cast<unsigned>(zs.comp_method) : 0u;
-        const uint64_t archiveDiskSize = diskFileSize64(zipPath);
         bool fileOk = true;
         uint64_t writtenTotal = 0;
         {
@@ -646,8 +651,26 @@ std::vector<char> buffer(EXTRACT_CHUNK);
             if (onProgress) onProgress(prog);
         }
 
-        sceIoClose(fd);
-        zip_fclose(zf);
+        const int zipCloseResult = zip_fclose(zf);
+        const int ioCloseResult = sceIoClose(fd);
+        if (fileOk && zipCloseResult != 0) {
+            char detail[240];
+            sceClibSnprintf(detail, sizeof(detail),
+                "zip_fclose failed entry=%s code=%d written=%llu",
+                name, zipCloseResult, (unsigned long long)writtenTotal);
+            setError(detail);
+            outcome = ZipResult::IoError;
+            fileOk = false;
+        }
+        if (fileOk && ioCloseResult < 0) {
+            char detail[240];
+            sceClibSnprintf(detail, sizeof(detail),
+                "sceIoClose failed entry=%s ret=%d written=%llu",
+                name, ioCloseResult, (unsigned long long)writtenTotal);
+            setError(detail);
+            outcome = ZipResult::IoError;
+            fileOk = false;
+        }
 
         if (fileOk) {
             char diag[384];
@@ -686,7 +709,14 @@ std::vector<char> buffer(EXTRACT_CHUNK);
         if (onProgress) onProgress(prog);
     }
 
-    zip_close(za);
+    const int archiveCloseResult = zip_close(za);
+    if (archiveCloseResult != 0) {
+        if (outcome == ZipResult::Ok) {
+            setError(std::string("zip_close failed: ") + zipArchiveError(za));
+            outcome = ZipResult::IoError;
+        }
+        zip_discard(za);
+    }
     if (outcome == ZipResult::Ok) {
         diagnostics::log(
             std::string("[ZipExtractor] extracted ") +

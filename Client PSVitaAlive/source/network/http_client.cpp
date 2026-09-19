@@ -280,6 +280,8 @@ struct TransferContext {
     uint64_t rangeEnd = 0;
     bool rangeMismatch = false; // 206 with start != requested resume
     int retryAfterSeconds = 0; // from Retry-After header (429/503)
+    long responseCode = 0; // current HTTP response, reset on each status line
+    bool discardedErrorBody = false;
     std::string etag;
     std::string lastModified;
     HttpProgressFn onProgress;
@@ -287,33 +289,41 @@ struct TransferContext {
     std::string path;
 };
 
-static const char* findHeaderIgnoreCase(const char* buffer, const char* header) {
-    if (!buffer || !header) return nullptr;
-    const size_t headerLength = std::strlen(header);
-    if (headerLength == 0) return buffer;
-    for (const char* p = buffer; *p != '\0'; ++p) {
-        size_t i = 0;
-        while (i < headerLength && p[i] != '\0') {
-            char a = p[i];
-            char b = header[i];
-            if (a >= 'A' && a <= 'Z') a = static_cast<char>(a - 'A' + 'a');
-            if (b >= 'A' && b <= 'Z') b = static_cast<char>(b - 'A' + 'a');
-            if (a != b) break;
-            ++i;
-        }
-        if (i == headerLength) return p;
+static bool startsWithAsciiNoCase(const char* buffer, size_t bytes, const char* prefix) {
+    if (!buffer || !prefix) return false;
+    const size_t n = std::strlen(prefix);
+    if (bytes < n) return false;
+    for (size_t i = 0; i < n; ++i) {
+        char a = buffer[i];
+        char b = prefix[i];
+        if (a >= 'A' && a <= 'Z') a = static_cast<char>(a - 'A' + 'a');
+        if (b >= 'A' && b <= 'Z') b = static_cast<char>(b - 'A' + 'a');
+        if (a != b) return false;
     }
-    return nullptr;
+    return true;
 }
 
-static std::string headerValue(const char* line, const char* header) {
-    const char* p = findHeaderIgnoreCase(line, header);
-    if (!p) return {};
-    p += std::strlen(header);
-    while (*p == ' ' || *p == '\t') ++p;
-    std::string value(p);
-    while (!value.empty() && (value.back() == '\r' || value.back() == '\n' || value.back() == ' ' || value.back() == '\t')) value.pop_back();
-    return value;
+static std::string headerValue(const char* buffer, size_t bytes, const char* header) {
+    if (!buffer || !header || !startsWithAsciiNoCase(buffer, bytes, header)) return {};
+    size_t p = std::strlen(header);
+    while (p < bytes && (buffer[p] == ' ' || buffer[p] == '\t')) ++p;
+    size_t end = bytes;
+    while (end > p && (buffer[end - 1] == '\r' || buffer[end - 1] == '\n' ||
+                       buffer[end - 1] == ' ' || buffer[end - 1] == '\t')) --end;
+    return std::string(buffer + p, end - p);
+}
+
+static bool parseHttpStatusLine(const char* buffer, size_t bytes, long& statusOut) {
+    statusOut = 0;
+    if (!startsWithAsciiNoCase(buffer, bytes, "HTTP/")) return false;
+    size_t p = 5;
+    while (p < bytes && buffer[p] != ' ') ++p;
+    while (p < bytes && buffer[p] == ' ') ++p;
+    if (p + 2 >= bytes || buffer[p] < '0' || buffer[p] > '9' ||
+        buffer[p + 1] < '0' || buffer[p + 1] > '9' ||
+        buffer[p + 2] < '0' || buffer[p + 2] > '9') return false;
+    statusOut = (buffer[p] - '0') * 100L + (buffer[p + 1] - '0') * 10L + (buffer[p + 2] - '0');
+    return true;
 }
 
 static void updateSpeed(TransferContext* ctx) {
@@ -353,12 +363,36 @@ static size_t headerCallback(char* buffer, size_t size, size_t nitems, void* use
     const size_t bytes = size * nitems;
     if (!ctx || bytes == 0) return bytes;
 
-    const char* contentLength = findHeaderIgnoreCase(buffer, "Content-Length:");
-    if (contentLength) {
-        unsigned long long value = 0;
-        if (std::sscanf(contentLength, "Content-Length: %llu", &value) == 1) ctx->total = static_cast<uint64_t>(value);
+    // libcurl explicitly does NOT NUL-terminate header lines and invokes this callback
+    // for every response in a redirect/auth chain. Treat status lines as response
+    // boundaries so Content-Length/ETag from a 30x/401 cannot leak into the final body.
+    long status = 0;
+    if (parseHttpStatusLine(buffer, bytes, status)) {
+        ctx->responseCode = status;
+        ctx->total = 0;
+        ctx->totalFromContentRange = false;
+        ctx->rangeValid = false;
+        ctx->rangeStart = 0;
+        ctx->rangeEnd = 0;
+        ctx->rangeMismatch = false;
+        ctx->retryAfterSeconds = 0;
+        ctx->etag.clear();
+        ctx->lastModified.clear();
+        ctx->firstWrite = true;
+        char msg[96];
+        sceClibSnprintf(msg, sizeof(msg), "response status=%ld", status);
+        httpDiagnostic(msg);
+        return bytes;
     }
-    const std::string contentRange = headerValue(buffer, "Content-Range:");
+
+    const std::string contentLength = headerValue(buffer, bytes, "Content-Length:");
+    if (!contentLength.empty()) {
+        unsigned long long value = 0;
+        if (std::sscanf(contentLength.c_str(), "%llu", &value) == 1)
+            ctx->total = static_cast<uint64_t>(value);
+    }
+
+    const std::string contentRange = headerValue(buffer, bytes, "Content-Range:");
     if (!contentRange.empty()) {
         uint64_t rangeStart = 0;
         uint64_t rangeEnd = 0;
@@ -377,7 +411,6 @@ static size_t headerCallback(char* buffer, size_t size, size_t nitems, void* use
                 (unsigned long long)rangeTotal,
                 (unsigned long long)ctx->resumeOffset);
             httpDiagnostic(rangeMsg);
-            // Strict: 206 body must begin at the requested resume offset.
             if (ctx->resumeOffset > 0 && rangeStart != ctx->resumeOffset) {
                 ctx->rangeMismatch = true;
                 char mm[220];
@@ -388,7 +421,6 @@ static size_t headerCallback(char* buffer, size_t size, size_t nitems, void* use
                 httpDiagnostic(mm);
             }
         } else {
-            // HTTP 416 commonly uses: Content-Range: bytes */TOTAL
             unsigned long long rangeTotal416 = 0;
             if (std::sscanf(contentRange.c_str(), "bytes */%llu", &rangeTotal416) == 1 &&
                 rangeTotal416 > 0) {
@@ -404,16 +436,16 @@ static size_t headerCallback(char* buffer, size_t size, size_t nitems, void* use
             }
         }
     }
-    const std::string etag = headerValue(buffer, "ETag:");
+
+    const std::string etag = headerValue(buffer, bytes, "ETag:");
     if (!etag.empty()) ctx->etag = etag;
-    const std::string modified = headerValue(buffer, "Last-Modified:");
+    const std::string modified = headerValue(buffer, bytes, "Last-Modified:");
     if (!modified.empty()) ctx->lastModified = modified;
-    // RFC 7231 Retry-After: delta-seconds (HTTP-date rarely used by IA; ignore date form).
-    const std::string retryAfter = headerValue(buffer, "Retry-After:");
+    const std::string retryAfter = headerValue(buffer, bytes, "Retry-After:");
     if (!retryAfter.empty()) {
         int sec = 0;
         if (std::sscanf(retryAfter.c_str(), "%d", &sec) == 1 && sec > 0) {
-            if (sec > 30) sec = 30; // hard cap so a bad header cannot freeze the UI for minutes
+            if (sec > 30) sec = 30;
             ctx->retryAfterSeconds = sec;
         }
     }
@@ -430,10 +462,25 @@ static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* userdata
         return 0;
     }
 
+    long responseCode = ctx->responseCode;
+    if (responseCode == 0)
+        curl_easy_getinfo(ctx->curl, CURLINFO_RESPONSE_CODE, &responseCode);
+
+    // Never write a final HTTP error page into payload.part. 4xx/5xx bodies are
+    // still consumed so curl_easy_perform can return CURLE_OK and the caller can
+    // classify/retry by HTTP status without corrupting an existing partial file.
+    if (responseCode != 200 && responseCode != 206) {
+        if (!ctx->discardedErrorBody) {
+            char msg[128];
+            sceClibSnprintf(msg, sizeof(msg), "discarding non-payload response body status=%ld", responseCode);
+            httpDiagnostic(msg);
+            ctx->discardedErrorBody = true;
+        }
+        return bytes;
+    }
+
     if (ctx->firstWrite) {
         ctx->firstWrite = false;
-        long responseCode = 0;
-        curl_easy_getinfo(ctx->curl, CURLINFO_RESPONSE_CODE, &responseCode);
         char first[260];
         sceClibSnprintf(first, sizeof(first),
             "first-write status=%ld resume=%llu total=%llu rangeValid=%d rangeStart=%llu mismatch=%d",
@@ -887,6 +934,11 @@ HttpResult HttpClient::downloadToFile(
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, CONNECT_TIMEOUT_SECONDS);
     curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
+#if LIBCURL_VERSION_NUM >= 0x071900
+    // Detect half-open Wi-Fi/NAT connections sooner during multi-gigabyte transfers.
+    curl_easy_setopt(curl, CURLOPT_TCP_KEEPIDLE, 30L);
+    curl_easy_setopt(curl, CURLOPT_TCP_KEEPINTVL, 15L);
+#endif
     // Do not set CURLOPT_SSL_CIPHER_LIST: Vita libcurl often returns CURLE_SSL_CIPHER (59)
     // for OpenSSL "SECLEVEL" syntax. Leave cipher negotiation to the TLS backend.
     curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, LOW_SPEED_LIMIT);
@@ -1059,6 +1111,16 @@ HttpResult HttpClient::downloadToFile(
         // previous retry/redirect cannot leak an old total into the next response.
         ctx.total = 0;
         ctx.totalFromContentRange = false;
+        ctx.rangeValid = false;
+        ctx.rangeStart = 0;
+        ctx.rangeEnd = 0;
+        ctx.rangeMismatch = false;
+        ctx.responseCode = 0;
+        ctx.discardedErrorBody = false;
+        ctx.firstWrite = true;
+        ctx.etag.clear();
+        ctx.lastModified.clear();
+        ctx.retryAfterSeconds = 0;
         curlError[0] = '\0';
         result = curl_easy_perform(curl);
         responseCode = 0;
@@ -1176,9 +1238,10 @@ HttpResult HttpClient::downloadToFile(
 
         if (result == CURLE_OK) {
             const bool transientHttp =
-                responseCode == 429 || responseCode == 502 || responseCode == 503 ||
-                responseCode == 504 || responseCode == 520 || responseCode == 522 ||
-                responseCode == 524;
+                responseCode == 408 || responseCode == 425 || responseCode == 429 ||
+                responseCode == 500 || responseCode == 502 || responseCode == 503 ||
+                responseCode == 504 || responseCode == 520 || responseCode == 521 ||
+                responseCode == 522 || responseCode == 523 || responseCode == 524;
             if (!transientHttp) break;
             char httpRetry[120];
             sceClibSnprintf(httpRetry, sizeof(httpRetry),

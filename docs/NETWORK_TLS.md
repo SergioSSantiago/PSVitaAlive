@@ -69,6 +69,22 @@ libzip:
 - Source reads: https://libzip.org/documentation/zip_source_read.html
 - ZIP error codes: https://libzip.org/documentation/zip_errors.html
 
+## Download integrity hardening
+
+The production client also:
+
+- parses libcurl header callbacks using the explicit byte count (header lines are not NUL-terminated);
+- resets response metadata at every HTTP status line so redirect/auth headers cannot contaminate the final response;
+- discards final 4xx/5xx response bodies instead of writing HTML/error payloads into `.part` files;
+- retries additional transient HTTP statuses (408/425/500/521/523 in addition to 429/502/503/504/520/522/524);
+- enables TCP keepalive tuning for long downloads when supported by the linked libcurl;
+- only enforces size-overrun guards after a real Content-Length/Content-Range has been observed;
+- throttles metadata writes to reduce storage churn during multi-GB transfers;
+- re-resolves expired MediaFire URLs while preserving the existing partial file and attempts a safe Range resume;
+- checks free space periodically while a long transfer is active.
+
+ZIP extraction caches archive size once, rejects aggregate-size overflow, and checks both `zip_fclose()` and Vita file-close results before declaring an entry complete.
+
 ## Optional: mbedTLS-backed curl (build-time)
 
 ```bash
