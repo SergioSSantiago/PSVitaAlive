@@ -23,8 +23,11 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
           p = Path('Client PSVitaAlive/source/installer/install_controller.cpp')
           s = p.read_text(encoding='utf-8')
+
           old = ('        setStage(cancelled ? "Cancelled" : "Error");\n'
                  '        setState(cancelled ? InstallStatus::State::Cancelled : InstallStatus::State::Failed, error.c_str());\n'
                  '        liveAreaOk_.store(false);\n')
@@ -39,18 +42,25 @@ jobs:
           if old not in s:
               raise SystemExit('failure-state anchor missing')
           s = s.replace(old, new, 1)
-          old2 = ('            zipRecoveryAvailable_.store(true);\n'
-                  '            setStage("ZipRecovery");\n'
-                  '            setInstallPath(activeZipDestination_.c_str());\n'
-                  '            diagnostics::log(std::string("[Installer] ZIP recovery available path=") + recoveryPath +\n')
-          new2 = ('            zipRecoveryAvailable_.store(true);\n'
-                  '            setStage("ZipRecovery");\n'
-                  '            setInstallPath(activeZipDestination_.c_str());\n'
-                  '            setState(InstallStatus::State::Failed, error.c_str());\n'
-                  '            diagnostics::log(std::string("[Installer] ZIP recovery available path=") + recoveryPath +\n')
-          if old2 not in s:
+
+          pattern = re.compile(
+              r'(?m)^(\s*)zipRecoveryAvailable_\.store\(true\);\n'
+              r'^\s*setStage\("ZipRecovery"\);\n'
+              r'^\s*setInstallPath\(activeZipDestination_\.c_str\(\)\);\n'
+              r'^(\s*)diagnostics::log\(std::string\("\[Installer\] ZIP recovery available path="\) \+ recoveryPath \+\n'
+          )
+          match = pattern.search(s)
+          if not match:
               raise SystemExit('recovery publish anchor missing')
-          s = s.replace(old2, new2, 1)
+          indent = match.group(1)
+          replacement = (
+              f'{indent}zipRecoveryAvailable_.store(true);\n'
+              f'{indent}setStage("ZipRecovery");\n'
+              f'{indent}setInstallPath(activeZipDestination_.c_str());\n'
+              f'{indent}setState(InstallStatus::State::Failed, error.c_str());\n'
+              f'{indent}diagnostics::log(std::string("[Installer] ZIP recovery available path=") + recoveryPath +\n'
+          )
+          s = s[:match.start()] + replacement + s[match.end():]
           p.write_text(s, encoding='utf-8')
           PY
           git diff --check
@@ -72,8 +82,6 @@ jobs:
               rc=${PIPESTATUS[0]}
               set -e
               echo "build_rc=$rc"
-              # The current official image has a pre-existing final-link ABI issue;
-              # this gate specifically proves the touched translation units compile.
               grep -F "install_controller.cpp" /tmp/zip-build.log >/dev/null
               grep -F "full_catalog_screen.cpp" /tmp/zip-build.log >/dev/null
               grep -F "main.cpp" /tmp/zip-build.log >/dev/null
@@ -81,7 +89,6 @@ jobs:
                 echo "Touched source failed to compile" >&2
                 exit 1
               fi
-              # Reaching final ELF link proves all project C/C++ compilation completed.
               grep -E "Linking CXX executable PSVitaAlive(\\.elf)?" /tmp/zip-build.log >/dev/null || {
                 echo "Build did not reach final link stage" >&2
                 tail -n 120 /tmp/zip-build.log >&2
