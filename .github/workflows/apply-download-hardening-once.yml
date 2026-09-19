@@ -22,11 +22,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate patch script
-        run: python -m py_compile scripts/apply_download_stack_hardening.py
+      - name: Validate patch scripts
+        run: |
+          python -m py_compile scripts/apply_download_stack_hardening.py
+          python -m py_compile scripts/apply_download_stack_hardening_v2.py
 
       - name: Apply download and ZIP hardening
-        run: python scripts/apply_download_stack_hardening.py
+        run: python scripts/apply_download_stack_hardening_v2.py
 
       - name: Static sanity checks
         shell: bash
