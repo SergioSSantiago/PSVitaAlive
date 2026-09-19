@@ -31,24 +31,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker pull vitasdk/vitasdk:2026.08-minimal
+          docker pull vitasdk/vitasdk:2026.08
           docker run --rm \
             -v "$PWD:/workspace" \
             -w "/workspace/Client PSVitaAlive" \
-            vitasdk/vitasdk:2026.08-minimal \
+            vitasdk/vitasdk:2026.08 \
             bash -lc '
               set -euo pipefail
               echo "VITASDK=$VITASDK"
 
-              # Use the official minimal image and install only PSVitaAlive's target
-              # dependencies. The full image carries mutually exclusive OpenSSL
-              # variants because it contains every VitaSDK package; an explicit package
-              # set gives curl/libzip the legacy openssl package they declare and avoids
-              # an artificial CI-only libssl/libcrypto collision.
-              vdpm install \
-                zlib bzip2 xz zstd \
-                libpng libjpeg-turbo freetype libvita2d \
-                openssl curl libzip taihen
+              # The moving full image currently contains openssl-1.1.1 while the
+              # official curl package declares the legacy `openssl` (Vita OpenSSL
+              # 1.0.2) dependency. The two packages now declare a conflict. For this
+              # isolated CI container remove the alternate ABI without dependency
+              # checks, then install curl's declared dependency from the same signed
+              # VitaSDK channel. No developer machine or release artifact is modified.
+              vdpm pacman -- -Rdd --noconfirm openssl-1.1.1 || true
+              VDPM_NONINTERACTIVE=1 vdpm install openssl
 
               echo "Installed network package metadata:"
               vdpm info openssl || true
