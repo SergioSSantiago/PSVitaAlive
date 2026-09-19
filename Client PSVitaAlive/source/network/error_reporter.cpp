@@ -7,10 +7,12 @@
 #include <psp2/io/fcntl.h>
 #include <psp2/rtc.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
-#include <algorithm>
 #include <string>
+#include <vector>
 
 namespace psvitaalive {
 namespace {
@@ -21,10 +23,27 @@ constexpr const char* kDiscordWebhookUrl =
     "XPinil0HHmwzje7MOMXjXi0iQEHf7lHQtmZZILre3AbXMTxRLnObpYwX5yGhqzrdROWr";
 
 constexpr uint64_t kCooldownMs = 45000ULL;
-constexpr size_t kMaxLogTailBytes = 28000;
-constexpr size_t kMaxEmbedDesc = 6000;
+constexpr size_t kSessionTailBytes = 48 * 1024;
+constexpr size_t kInstallTailBytes = 24 * 1024;
+// Discord API: embed description <= 4096 chars, all embed text <= 6000.
+// Keep one single copyable diagnostic block comfortably below both limits.
+constexpr size_t kDiscordDescriptionLimit = 4096;
+constexpr size_t kReportTextLimit = 3970;
+constexpr size_t kMaxExcerptLines = 72;
+constexpr size_t kSearchBackLines = 260;
+constexpr size_t kSearchForwardLines = 36;
 
 uint64_t g_lastReportMs = 0;
+
+enum class ReportScope {
+    Manual,
+    Network,
+    Zip,
+    Install,
+    Catalog,
+    SelfUpdate,
+    Other
+};
 
 std::string jsonEscape(const std::string& in) {
     std::string out;
@@ -102,176 +121,332 @@ std::string clientVersionString() {
 #endif
 }
 
-// Keep report logs aligned with the failure (e.g. Game Files.zip), not a prior VPK step.
-std::string relevantLogWindow(const std::string& text, const std::string& fileName, const std::string& context) {
-    if (text.empty()) return text;
+char asciiLower(char c) {
+    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+}
 
-    std::string needle = fileName;
-    if (needle.empty()) {
-        const std::string key = "file=";
-        const size_t fp = context.rfind(key);
-        if (fp != std::string::npos) {
-            needle = context.substr(fp + key.size());
-            while (!needle.empty() && (needle.back() == ' ' || needle.back() == '\n' || needle.back() == '\r'))
-                needle.pop_back();
-            const size_t sp = needle.find('|');
-            if (sp != std::string::npos) needle.resize(sp);
-            while (!needle.empty() && needle.back() == ' ') needle.pop_back();
-        }
-    }
+std::string lowerAscii(std::string s) {
+    for (char& c : s) c = asciiLower(c);
+    return s;
+}
 
-    const bool zipFailure =
-        context.find("zip") != std::string::npos ||
-        context.find("ZIP") != std::string::npos ||
-        context.find(".zip") != std::string::npos ||
-        context.find("ZipExtractor") != std::string::npos ||
-        context.find("local header") != std::string::npos ||
-        context.find("EOCD") != std::string::npos;
+bool containsNoCase(const std::string& haystack, const std::string& needle) {
+    if (needle.empty()) return false;
+    const std::string h = lowerAscii(haystack);
+    const std::string n = lowerAscii(needle);
+    return h.find(n) != std::string::npos;
+}
 
-    size_t hit = std::string::npos;
-    if (zipFailure) {
-        static const char* kZipHits[] = {
-            "zip_open failed", "zip_open_from_source failed",
-            "missing local header", "local header magic",
-            "[ZipExtractor]", "[ZipDiag]",
-            "zip_fread failed", "EOCD pre-check failed",
-            "Failed after", nullptr
-        };
-        for (int i = 0; kZipHits[i]; ++i) {
-            const size_t p = text.rfind(kZipHits[i]);
-            if (p != std::string::npos && (hit == std::string::npos || p > hit))
-                hit = p;
-        }
-    } else if (!needle.empty()) {
-        hit = text.rfind(needle);
-    }
-    if (hit == std::string::npos) {
-        static const char* kToks[] = {
-            "[ZipDiag] entry_read_failed", "[ZipDiag] entry_begin",
-            "[ZipDiag] entry_read_complete",
-            "zip_open failed", "zip_open_from_source failed", "EOCD pre-check failed",
-            "missing local header", "local header magic",
-            "[ZipExtractor]", "ZipExtractor", "zip_fread failed", "Zlib error",
-            "download exceeded", "size limit hit", "HTTP ERROR", "curl error",
-            "Install All step", "Install All stopped",
-            "installation failed", "download failed", "PromotePkg failed",
-            "SSL connect error", "MediaFire", "OpenFailed",
-            "HTTP attempt", "HTTP download retry", nullptr
-        };
-        for (int i = 0; kToks[i]; ++i) {
-            const size_t p = text.rfind(kToks[i]);
-            if (p != std::string::npos && (hit == std::string::npos || p > hit))
-                hit = p;
-        }
-    }
-    if (hit == std::string::npos)
-        return text;
+std::string trimCopy(std::string s) {
+    while (!s.empty() && (s.front() == ' ' || s.front() == '\t' || s.front() == '\r' || s.front() == '\n'))
+        s.erase(s.begin());
+    while (!s.empty() && (s.back() == ' ' || s.back() == '\t' || s.back() == '\r' || s.back() == '\n'))
+        s.pop_back();
+    return s;
+}
 
-    static const char* kStarts[] = {
-        "[ZipDiag]",
-        "[ZipExtractor]",
-        "zip_open failed",
-        "LINK INSTALL",
-        "[UI] Install All step",
-        "[Installer] request job=",
-        "[Installer] installing job=",
-        "[Installer] extract/install retry",
-        "HTTP BEGIN url=",
-        "[DownloadManager] attempt",
-        "[InstallDispatcher] detect format=",
-        "HTTP attempt",
-        nullptr
-    };
-    const size_t searchFloor = (hit > 120000) ? (hit - 120000) : 0;
-    size_t start = std::string::npos;
-    for (int i = 0; kStarts[i]; ++i) {
-        size_t p = text.rfind(kStarts[i], hit);
-        if (p == std::string::npos || p < searchFloor) continue;
-        if (!needle.empty()) {
-            const size_t regionEnd = std::min(text.size(), p + 900);
-            const size_t fn = text.find(needle, p);
-            if (fn == std::string::npos || fn > regionEnd)
-                continue;
-        }
-        if (start == std::string::npos || p > start)
-            start = p;
-    }
-    if (start == std::string::npos) {
-        start = (hit > 8000) ? (hit - 8000) : 0;
+std::vector<std::string> splitLines(const std::string& text) {
+    std::vector<std::string> lines;
+    size_t start = 0;
+    while (start <= text.size()) {
         const size_t nl = text.find('\n', start);
-        if (nl != std::string::npos && nl < hit)
-            start = nl + 1;
-    } else {
-        const size_t nl = text.rfind('\n', start);
-        start = (nl == std::string::npos) ? start : (nl + 1);
+        std::string line = nl == std::string::npos ? text.substr(start) : text.substr(start, nl - start);
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        lines.push_back(std::move(line));
+        if (nl == std::string::npos) break;
+        start = nl + 1;
+    }
+    return lines;
+}
+
+std::string fileNameFromRequest(const ErrorReportRequest& req) {
+    if (!req.fileName.empty()) return trimCopy(req.fileName);
+    const std::string low = lowerAscii(req.context);
+    const size_t fp = low.rfind("file=");
+    if (fp == std::string::npos) return {};
+    std::string name = req.context.substr(fp + 5);
+    const size_t pipe = name.find('|');
+    if (pipe != std::string::npos) name.resize(pipe);
+    const size_t nl = name.find('\n');
+    if (nl != std::string::npos) name.resize(nl);
+    return trimCopy(name);
+}
+
+bool hasAny(const std::string& low, const char* const* tokens) {
+    for (int i = 0; tokens[i]; ++i) {
+        if (low.find(tokens[i]) != std::string::npos) return true;
+    }
+    return false;
+}
+
+ReportScope classifyScope(const ErrorReportRequest& req) {
+    if (req.kind == ErrorReportKind::Manual) return ReportScope::Manual;
+    if (req.kind == ErrorReportKind::Catalog) return ReportScope::Catalog;
+    if (req.kind == ErrorReportKind::SelfUpdate) return ReportScope::SelfUpdate;
+
+    const std::string file = lowerAscii(fileNameFromRequest(req));
+    const std::string low = lowerAscii(req.context + " " + file + " " + req.title);
+
+    static const char* const kNetwork[] = {
+        "curl error", "ssl", "tls", "certificate", "http status", "http error",
+        "download failed", "network", "timed out", "timeout", "recv error",
+        "send error", "resolve host", "mediafire", "content-range", "range mismatch",
+        "size mismatch after download", "connection", nullptr
+    };
+    static const char* const kZip[] = {
+        "zip_fread", "zlib", "zip_open", "zip extractor", "zipextractor",
+        "eocd", "local header", "compressed data", "crc", "extract failed",
+        "unpack failed", nullptr
+    };
+    static const char* const kInstall[] = {
+        "promotepkg", "promoter", "installvpk", "param.sfo", "eboot.bin",
+        "fakepackagebuilder", "installation failed", "install failed", nullptr
+    };
+
+    // A .zip can fail during download or extraction. Network evidence takes priority.
+    if (req.kind == ErrorReportKind::DownloadFailed || hasAny(low, kNetwork)) return ReportScope::Network;
+    if (hasAny(low, kZip)) return ReportScope::Zip;
+    if (req.kind == ErrorReportKind::InstallFailed || hasAny(low, kInstall)) return ReportScope::Install;
+    return ReportScope::Other;
+}
+
+bool imageReport(const ErrorReportRequest& req) {
+    const std::string low = lowerAscii(fileNameFromRequest(req) + " " + req.context);
+    return low.find(".png") != std::string::npos || low.find(".jpg") != std::string::npos ||
+           low.find(".jpeg") != std::string::npos || low.find(".webp") != std::string::npos ||
+           low.find("image") != std::string::npos || low.find("icon") != std::string::npos ||
+           low.find("screenshot") != std::string::npos;
+}
+
+bool isNoiseLine(const std::string& line, const ErrorReportRequest& req) {
+    const std::string low = lowerAscii(line);
+    if (low.empty()) return true;
+    if (low.find("[perf] slow frame") != std::string::npos) return true;
+    if (low.find("textures=") != std::string::npos && low.find("deferred=") != std::string::npos) return true;
+    if (!imageReport(req) && low.find("[imagecache]") != std::string::npos) return true;
+    if (!imageReport(req) && low.find("/cache/images/") != std::string::npos) return true;
+    // Rendering/navigation chatter is almost never useful for install/download reports.
+    if (req.kind != ErrorReportKind::Manual && low.find("[ui] frame") != std::string::npos) return true;
+    return false;
+}
+
+bool lineHasStrongError(const std::string& low) {
+    static const char* const kStrong[] = {
+        "curl error", " failed", "failure", "error=", " error ", "http status",
+        "zip_fread", "zlib error", "eocd", "local header", "range mismatch",
+        "size mismatch", "promotepkg failed", "sceiowrite failed", "openfailed",
+        "ssl", "tls", "certificate", "aborted", "corrupt", "truncated",
+        "download exceeded", "size limit hit", nullptr
+    };
+    return hasAny(low, kStrong);
+}
+
+bool lineMatchesScope(const std::string& low, ReportScope scope) {
+    switch (scope) {
+    case ReportScope::Network: {
+        static const char* const k[] = {
+            "http ", "[downloadmanager]", "curl", "download", "content-range", "range ",
+            "resume", "retry", "archive failover", "effective_url", "ssl", "tls", "certificate",
+            "mediafire", "redirect", "remote_total", "remotetotal", "validator", nullptr
+        };
+        return hasAny(low, k);
+    }
+    case ReportScope::Zip: {
+        static const char* const k[] = {
+            "[zipextractor]", "[zipdiag]", "zip_", "zlib", "eocd", "local header",
+            "extract", "uncomp=", "comp=", "compression", "archive_size", nullptr
+        };
+        return hasAny(low, k);
+    }
+    case ReportScope::Install: {
+        static const char* const k[] = {
+            "[installer]", "installvpk", "promote", "promoter", "scepromoter",
+            "fakepackagebuilder", "param.sfo", "eboot.bin", "package root",
+            "[installdispatcher]", "vpk", "pkg", nullptr
+        };
+        return hasAny(low, k);
+    }
+    case ReportScope::Catalog: {
+        static const char* const k[] = {
+            "catalog", "catalog.json", "authors.json", "categories.json", "validator",
+            "etag", "http ", "curl", "parse", "json", nullptr
+        };
+        return hasAny(low, k);
+    }
+    case ReportScope::SelfUpdate: {
+        static const char* const k[] = {
+            "self-update", "self update", "update", "release", "github", "http ",
+            "curl", "vpk", "version", nullptr
+        };
+        return hasAny(low, k);
+    }
+    case ReportScope::Manual:
+        return !low.empty();
+    case ReportScope::Other:
+    default:
+        return lineHasStrongError(low) || low.find("[errorreport]") != std::string::npos;
+    }
+}
+
+bool lineIsStructural(const std::string& low, ReportScope scope) {
+    if (scope == ReportScope::Network || scope == ReportScope::Zip || scope == ReportScope::Install) {
+        return low.find("install all step") != std::string::npos ||
+               low.find("link install") != std::string::npos ||
+               low.find("request job=") != std::string::npos ||
+               low.find("installing job=") != std::string::npos ||
+               low.find("begin url=") != std::string::npos ||
+               low.find("begin path=") != std::string::npos ||
+               low.find("detect format=") != std::string::npos;
+    }
+    return false;
+}
+
+std::vector<std::string> contextFingerprints(const ErrorReportRequest& req) {
+    std::vector<std::string> out;
+    const std::string low = lowerAscii(req.context);
+    static const char* const k[] = {
+        "curl error", "zip_fread", "zlib error", "http status", "eocd", "local header",
+        "promotepkg", "sceiowrite", "size mismatch", "range mismatch", "mediafire",
+        "ssl", "tls", "certificate", "openfailed", "download exceeded", nullptr
+    };
+    for (int i = 0; k[i]; ++i) {
+        if (low.find(k[i]) != std::string::npos) out.emplace_back(k[i]);
+    }
+    // Preserve the exact curl code when present: "curl error 56", etc.
+    const size_t cp = low.find("curl error ");
+    if (cp != std::string::npos) {
+        size_t end = cp + 11;
+        while (end < low.size() && std::isdigit(static_cast<unsigned char>(low[end]))) ++end;
+        if (end > cp + 11) out.push_back(low.substr(cp, end - cp));
+    }
+    return out;
+}
+
+bool lineMatchesFingerprint(const std::string& low, const std::vector<std::string>& fingerprints) {
+    for (const auto& fp : fingerprints) {
+        if (!fp.empty() && low.find(fp) != std::string::npos) return true;
+    }
+    return false;
+}
+
+std::string compactExcerpt(
+    const std::string& text,
+    const ErrorReportRequest& req,
+    ReportScope scope,
+    bool strictFileCorrelation,
+    const char* sourceName
+) {
+    if (text.empty()) return {};
+    const std::vector<std::string> lines = splitLines(text);
+    if (lines.empty()) return {};
+
+    const std::string file = lowerAscii(fileNameFromRequest(req));
+    const std::string titleId = lowerAscii(req.app.titleId);
+    const std::vector<std::string> fingerprints = contextFingerprints(req);
+
+    bool hasFile = false;
+    bool hasFingerprint = false;
+    size_t best = std::string::npos;
+    int bestScore = -100000;
+
+    for (size_t i = 0; i < lines.size(); ++i) {
+        if (isNoiseLine(lines[i], req)) continue;
+        const std::string low = lowerAscii(lines[i]);
+        const bool fileHit = !file.empty() && low.find(file) != std::string::npos;
+        const bool fpHit = lineMatchesFingerprint(low, fingerprints);
+        const bool strong = lineHasStrongError(low);
+        const bool scopeHit = lineMatchesScope(low, scope);
+        const bool titleHit = !titleId.empty() && low.find(titleId) != std::string::npos;
+        hasFile = hasFile || fileHit;
+        hasFingerprint = hasFingerprint || fpHit;
+
+        int score = 0;
+        if (fileHit) score += 120;
+        if (fpHit) score += 90;
+        if (strong) score += 55;
+        if (scopeHit) score += 20;
+        if (titleHit) score += 25;
+        if (low.find("[ui] error report requested") != std::string::npos) score -= 15;
+        if (score > bestScore || (score == bestScore && score > 0 && i > best)) {
+            bestScore = score;
+            best = i;
+        }
     }
 
-    std::string window = text.substr(start);
-    constexpr size_t kMaxWindow = 14000;
-    if (window.size() > kMaxWindow) {
-        const size_t head = 5000;
-        const size_t tailn = kMaxWindow - head - 20;
-        window = window.substr(0, head) + "\n…[truncated]…\n" + window.substr(window.size() - tailn);
+    // For a report tied to a concrete payload, install.log must prove it is about
+    // that payload (filename or the same error fingerprint). This is what prevents
+    // a successful VPK promotion from polluting a later Game Files.zip network error.
+    if (strictFileCorrelation && !file.empty() && !hasFile && !hasFingerprint)
+        return {};
+
+    if (best == std::string::npos || bestScore <= 0) {
+        if (scope != ReportScope::Manual) return {};
+        best = lines.size() - 1;
     }
-    return window;
+
+    const size_t begin = best > kSearchBackLines ? best - kSearchBackLines : 0;
+    const size_t end = std::min(lines.size(), best + kSearchForwardLines + 1);
+    std::vector<std::pair<size_t, std::string>> selected;
+    selected.reserve(kMaxExcerptLines);
+
+    for (size_t i = begin; i < end; ++i) {
+        if (isNoiseLine(lines[i], req)) continue;
+        const std::string low = lowerAscii(lines[i]);
+        const bool fileHit = !file.empty() && low.find(file) != std::string::npos;
+        const bool fpHit = lineMatchesFingerprint(low, fingerprints);
+        const bool titleHit = !titleId.empty() && low.find(titleId) != std::string::npos;
+        const bool relevant = fileHit || fpHit || titleHit || lineHasStrongError(low) ||
+                              lineMatchesScope(low, scope) || lineIsStructural(low, scope);
+        if (!relevant && scope != ReportScope::Manual) continue;
+        selected.emplace_back(i, lines[i]);
+    }
+
+    if (scope == ReportScope::Manual && selected.size() > 36)
+        selected.erase(selected.begin(), selected.end() - 36);
+    if (selected.size() > kMaxExcerptLines)
+        selected.erase(selected.begin(), selected.end() - kMaxExcerptLines);
+    if (selected.empty()) return {};
+
+    std::string out;
+    out.reserve(3000);
+    out += "--- ";
+    out += sourceName;
+    out += " (correlated) ---\n";
+    size_t previous = selected.front().first;
+    bool first = true;
+    for (const auto& item : selected) {
+        if (!first && item.first > previous + 2)
+            out += "...\n";
+        out += item.second;
+        out += "\n";
+        previous = item.first;
+        first = false;
+    }
+    return out;
 }
 
 std::string buildLogBlock(const ErrorReportRequest& req) {
-    // Prefer a large tail so late install/ZIP failures are still present.
-    const std::string sessionRaw = readFileTail("ux0:data/psvitaalive/logs/session.log", kMaxLogTailBytes + 8000);
-    const std::string installRaw = readFileTail("ux0:data/psvitaalive/logs/install.log", 8000);
+    const ReportScope scope = classifyScope(req);
+    const std::string sessionRaw = readFileTail("ux0:data/psvitaalive/logs/session.log", kSessionTailBytes);
+    const std::string installRaw = readFileTail("ux0:data/psvitaalive/logs/install.log", kInstallTailBytes);
 
-    std::string session = relevantLogWindow(sessionRaw, req.fileName, req.context);
-    std::string install = relevantLogWindow(installRaw, req.fileName, req.context);
-
-    // Never drop logs just because the failure is ZIP-related but uses a
-    // different marker (zip_open / local header magic / EOCD). Older logic
-    // required [ZipDiag] and wiped valid tails → Discord showed
-    // "(no log files found on device)" even when session.log existed.
-    auto hasUsefulZipTrace = [](const std::string& s) -> bool {
-        if (s.empty()) return false;
-        return s.find("[ZipDiag]") != std::string::npos
-            || s.find("zip_fread") != std::string::npos
-            || s.find("zip_open") != std::string::npos
-            || s.find("ZipExtractor") != std::string::npos
-            || s.find("local header") != std::string::npos
-            || s.find("EOCD") != std::string::npos
-            || s.find("Failed after") != std::string::npos;
-    };
-    if (session.empty() && !sessionRaw.empty())
-        session = sessionRaw;
-    if (install.empty() && !installRaw.empty())
-        install = installRaw;
-    // If filtered window lost the failure line, prefer the full tail.
-    if (!sessionRaw.empty() && !hasUsefulZipTrace(session) && hasUsefulZipTrace(sessionRaw))
-        session = sessionRaw;
-    if (!installRaw.empty() && !hasUsefulZipTrace(install) && hasUsefulZipTrace(installRaw))
-        install = installRaw;
+    // session.log is the primary source for network/catalog/UI errors. install.log
+    // is stricter whenever a concrete file is known, so previous install operations
+    // cannot consume the Discord budget of the actual failure.
+    std::string session = compactExcerpt(sessionRaw, req, scope, false, "session.log");
+    std::string install;
+    if (scope == ReportScope::Install || scope == ReportScope::Zip) {
+        install = compactExcerpt(installRaw, req, scope, true, "install.log");
+    }
 
     std::string block;
-    if (!session.empty()) {
-        block += "=== session.log (relevant) ===\n";
-        block += session;
-    }
+    if (!session.empty()) block += session;
     if (!install.empty()) {
         if (!block.empty()) block += "\n";
-        block += "=== install.log (relevant) ===\n";
         block += install;
     }
     if (block.empty()) {
-        // Still attach the reason so Discord is useful even without a log tail.
-        block = "(no usable log content — expected ux0:data/psvitaalive/logs/session.log)";
-        if (!req.context.empty()) {
-            block += "\nReason: ";
-            block += req.context.size() > 400 ? req.context.substr(0, 400) : req.context;
-        }
-        if (!req.fileName.empty()) {
-            block += "\nFile: ";
-            block += req.fileName;
-        }
-    }
-    if (block.size() > kMaxEmbedDesc) {
-        block = std::string("…[truncated]\n") + block.substr(block.size() - (kMaxEmbedDesc - 16));
+        block = "(no correlated log lines found; unrelated log tails intentionally omitted)\n";
     }
     return block;
 }
@@ -323,18 +498,62 @@ std::string titleIdTag(const std::string& tid) {
 
 std::string truncate(std::string s, size_t max) {
     if (s.size() <= max) return s;
+    if (max <= 1) return s.substr(0, max);
     return s.substr(0, max - 1) + "…";
 }
 
-void appendEmbedField(std::string& body, const char* name, const std::string& value, bool inlineField) {
-    if (value.empty()) return;
-    body += "{\"name\":\"";
-    body += jsonEscape(name);
-    body += "\",\"value\":\"";
-    body += jsonEscape(truncate(value, 900));
-    body += "\",\"inline\":";
-    body += inlineField ? "true" : "false";
-    body += "},";
+std::string middleTrim(const std::string& s, size_t max) {
+    if (s.size() <= max) return s;
+    if (max < 40) return s.substr(0, max);
+    const std::string marker = "\n...[report truncated]...\n";
+    const size_t usable = max > marker.size() ? max - marker.size() : 0;
+    const size_t head = usable / 3;
+    const size_t tail = usable - head;
+    return s.substr(0, head) + marker + s.substr(s.size() - tail);
+}
+
+std::string sanitizeCodeBlock(std::string s) {
+    size_t p = 0;
+    while ((p = s.find("```", p)) != std::string::npos) {
+        s.replace(p, 3, "'''");
+        p += 3;
+    }
+    return s;
+}
+
+std::string buildCopyableReportText(
+    const ErrorReportRequest& req,
+    const std::string& version,
+    const std::string& logs
+) {
+    std::string meta;
+    meta.reserve(900);
+    meta += "TYPE: ";
+    meta += kindLabel(req.kind);
+    meta += " ";
+    meta += kindTag(req.kind);
+    meta += "\n";
+    meta += "APP: ";
+    meta += req.app.name.empty() ? "-" : req.app.name;
+    meta += "\nTITLE_ID: ";
+    meta += req.app.titleId.empty() ? "-" : req.app.titleId;
+    meta += "\nAPP_VERSION: ";
+    meta += req.app.version.empty() ? "-" : req.app.version;
+    meta += "\nCLIENT: v";
+    meta += version;
+    meta += "\nSTORE_TITLE_ID: PSVAS1178\n";
+    const std::string file = fileNameFromRequest(req);
+    meta += "FILE: ";
+    meta += file.empty() ? "-" : file;
+    meta += "\nREASON: ";
+    meta += req.context.empty() ? "-" : req.context;
+    meta += "\n\nRELEVANT LOGS:\n";
+
+    // Metadata/reason always win. Logs consume only the remaining budget.
+    if (meta.size() >= kReportTextLimit)
+        return sanitizeCodeBlock(truncate(meta, kReportTextLimit));
+    const size_t logBudget = kReportTextLimit - meta.size();
+    return sanitizeCodeBlock(meta + middleTrim(logs, logBudget));
 }
 
 } // namespace
@@ -352,8 +571,7 @@ ErrorReportResult sendErrorReport(const std::string& title, const std::string& c
     ErrorReportRequest req;
     req.title = title;
     req.context = context;
-    std::string low = title;
-    for (char& c : low) if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    std::string low = lowerAscii(title);
     if (low.find("manual") != std::string::npos)
         req.kind = ErrorReportKind::Manual;
     else if (low.find("install") != std::string::npos)
@@ -382,27 +600,25 @@ ErrorReportResult sendErrorReport(const ErrorReportRequest& req) {
     const std::string ver = clientVersionString();
     const std::string ts = isoTimestampUtc();
     const std::string logs = buildLogBlock(req);
+    const std::string copyText = buildCopyableReportText(req, ver, logs);
 
     std::string safeTitle = req.title.empty() ? kindLabel(req.kind) : req.title;
     if (safeTitle.size() > 200) safeTitle.resize(200);
 
-    // Discord search: plain tokens work; leading "#" often does not (channel syntax).
-    // Put both: "install_failed" for search and "#install_failed" for readability.
+    // Searchable tokens remain outside the embed so Discord search keeps working.
     std::string content;
     {
-        const char* kt = kindTag(req.kind); // e.g. #install_failed
+        const char* kt = kindTag(req.kind);
         content += kt;
         content += " ";
-        // Plain token without hash for Discord search (search: install_failed)
-        if (kt[0] == '#') content += (kt + 1);
-        else content += kt;
+        content += kt[0] == '#' ? (kt + 1) : kt;
     }
     content += " ";
     const std::string appTag = titleIdTag(req.app.titleId);
     if (!appTag.empty()) {
         content += appTag;
         content += " ";
-        if (appTag.size() > 1 && appTag[0] == '#') content += appTag.substr(1);
+        content += appTag.substr(1);
         content += " ";
     }
     if (!req.app.name.empty())
@@ -411,88 +627,19 @@ ErrorReportResult sendErrorReport(const ErrorReportRequest& req) {
         content += req.app.titleId;
     else
         content += "(no app)";
-    // Put a short reason in message content so the failure is visible even if
-    // embed log fields are collapsed in Discord mobile.
     if (!req.context.empty()) {
         content += "\n";
         content += truncate(req.context, 220);
     }
     if (content.size() > 1800) content.resize(1800);
 
-    std::string desc;
-    desc.reserve(512);
-    desc += "**Type:** ";
-    desc += kindLabel(req.kind);
-    desc += " `";
-    desc += kindTag(req.kind);
-    desc += "`\n";
-    if (!req.context.empty()) {
-        desc += "**Reason:** ";
-        desc += truncate(req.context, 1800);
-        desc += "\n";
-    }
-    if (!req.fileName.empty()) {
-        desc += "**File:** `";
-        desc += truncate(req.fileName, 120);
-        desc += "`\n";
-    }
-    desc += "_Discord search: type the tag **without** # (e.g. `install_failed` or `app_PCSG00000`)._";
-
-    std::string fields;
-    fields.reserve(512);
-    appendEmbedField(fields, "App", req.app.name.empty() ? "—" : req.app.name, true);
-    appendEmbedField(fields, "Title ID", req.app.titleId.empty() ? "—" : req.app.titleId, true);
-    if (!req.app.version.empty())
-        appendEmbedField(fields, "App version", req.app.version, true);
-    appendEmbedField(fields, "Client", std::string("v") + ver, true);
-    appendEmbedField(fields, "Store TitleID", "PSVAS1178", true);
-    {
-        // Discord embed field values max ~1024. Split into up to 5 fields; keep head+tail.
-        const size_t chunk = 900;
-        const int kMaxParts = 5;
-        std::string tail = logs;
-        if (tail.size() > chunk * static_cast<size_t>(kMaxParts)) {
-            const size_t keep = chunk * static_cast<size_t>(kMaxParts) - 20;
-            const size_t headKeep = keep / 3;
-            const size_t tailKeep = keep - headKeep;
-            tail = tail.substr(0, headKeep) + "\n…[truncated]…\n" + tail.substr(tail.size() - tailKeep);
-        }
-        if (tail.size() < logs.size()) {
-            const size_t nl = tail.find('\n');
-            if (nl != std::string::npos && nl + 1 < tail.size())
-                tail.erase(0, nl + 1);
-        }
-        int part = 1;
-        size_t off = 0;
-        const int totalParts = (int)((tail.size() + chunk - 1) / chunk);
-        while (off < tail.size() && part <= kMaxParts) {
-            size_t n = std::min(chunk, tail.size() - off);
-            if (off + n < tail.size()) {
-                const size_t cut = tail.rfind('\n', off + n);
-                if (cut != std::string::npos && cut > off + chunk / 2)
-                    n = cut - off + 1;
-            }
-            std::string piece = tail.substr(off, n);
-            off += n;
-            std::string logVal = "```\n";
-            logVal += piece;
-            if (logVal.size() > 1000) logVal.resize(1000);
-            logVal += "\n```";
-            char fname[32];
-            if (totalParts <= 1)
-                sceClibSnprintf(fname, sizeof(fname), "Logs");
-            else
-                sceClibSnprintf(fname, sizeof(fname), "Logs (%d/%d)", part, totalParts);
-            appendEmbedField(fields, fname, logVal, false);
-            ++part;
-        }
-        if (tail.empty())
-            appendEmbedField(fields, "Logs", "_(no session log)_", false);
-    }
-    if (!fields.empty() && fields.back() == ',') fields.pop_back();
+    // One code block = one Copy action in Discord. No Logs (1/5), Logs (2/5), etc.
+    std::string desc = "```text\n" + copyText + "\n```";
+    if (desc.size() > kDiscordDescriptionLimit)
+        desc = desc.substr(0, kDiscordDescriptionLimit - 4) + "\n```";
 
     std::string body;
-    body.reserve(desc.size() + fields.size() + content.size() + 400);
+    body.reserve(desc.size() + content.size() + 600);
     body += "{\"username\":\"PSVitaAlive Reports\",";
     body += "\"content\":\"";
     body += jsonEscape(content);
@@ -514,14 +661,9 @@ ErrorReportResult sendErrorReport(const ErrorReportRequest& req) {
     body += "\"timestamp\":\"";
     body += jsonEscape(ts);
     body += "\",";
-    if (!fields.empty()) {
-        body += "\"fields\":[";
-        body += fields;
-        body += "],";
-    }
     body += "\"footer\":{\"text\":\"PSVitaAlive v";
     body += jsonEscape(ver);
-    body += " · search #tags to filter\"}";
+    body += " · correlated diagnostics · one-block copy\"}";
     body += "}]}";
 
     HttpClient http;
@@ -534,6 +676,9 @@ ErrorReportResult sendErrorReport(const ErrorReportRequest& req) {
     diagnostics::log("[ErrorReport] sending webhook title=" + safeTitle +
                      " kind=" + kindTag(req.kind) +
                      " app=" + (req.app.titleId.empty() ? "-" : req.app.titleId) +
+                     " file=" + (fileNameFromRequest(req).empty() ? "-" : fileNameFromRequest(req)) +
+                     " scope=" + std::to_string(static_cast<int>(classifyScope(req))) +
+                     " payload_chars=" + std::to_string(copyText.size()) +
                      " ver=" + ver);
     const HttpResult hr = http.postJson(kDiscordWebhookUrl, body);
     const int status = http.lastStatusCode();
