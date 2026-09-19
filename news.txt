@@ -1,5 +1,5 @@
-id: 2026-09-17-0001
-title: PSVitaAlive 02.05 is here!
+id: 2026-09-19-0001
+title: PSVitaAlive 02.06 is here!
 enabled: true
 ---
 # Thanks for using PS Vita Alive Store.
@@ -18,13 +18,13 @@ enabled: true
 
 ## Improvements
 
-- Added OLED/LCD screen protection mode for long downloads, extractions, and installations.
-- Fixed crashes caused by repeatedly opening and closing the search keyboard.
-- Major image loading, caching, memory usage, and scrolling performance improvements.
-- Improved PS Vita PKG installation through BGDL, including better handling of extensionless PKG links.
-- Fixed self-update version detection to reliably use GitHub release tags.
-- Improved UI responsiveness and Settings performance.
-- Additional stability fixes and catalog updates.
+- Added a new animated mascot system for the protection screen, including built-in Sonic and Crash mascots.
+- Added mascot selection and persistent preferences.
+- Improved update detection, including better handling of Vita `APP_VER` versions and installation receipts.
+- Improved and localized Installed / Update Available badges.
+- Fixed update badge scrolling and clipping inside the catalog.
+- Improved the Request Data option to only appear where applicable.
+- Additional UI improvements, fixes, and catalog updates.
 
 ---
 
