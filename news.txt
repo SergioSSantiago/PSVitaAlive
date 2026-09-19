@@ -1,4 +1,4 @@
-id: 2026-09-19-0001
+id: 2026-09-19-0002
 title: PSVitaAlive 02.06 is here!
 enabled: true
 ---
@@ -20,8 +20,8 @@ enabled: true
 
 - Added a new animated mascot system for the protection screen, including built-in Sonic and Crash mascots.
 - Added mascot selection and persistent preferences.
-- Improved update detection, including better handling of Vita `APP_VER` versions and installation receipts.
-- Improved and localized Installed / Update Available badges.
+- Improved update detection, including better handling of Vita APP VER versions and installation receipts.
+- Improved and localized Installed-Update Available badges.
 - Fixed update badge scrolling and clipping inside the catalog.
 - Improved the Request Data option to only appear where applicable.
 - Additional UI improvements, fixes, and catalog updates.
