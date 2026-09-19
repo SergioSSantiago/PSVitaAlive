@@ -1,4 +1,5 @@
 build/
+Client PSVitaAlive/build-*/
 *.vpk
 *.self
 *.velf
