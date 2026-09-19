@@ -69,11 +69,38 @@ static void applyVitaSslDefaults(CURL* curl) {
 #endif
 }
 
+static char asciiLower(char c) {
+    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+}
+
+static bool containsAsciiNoCase(const char* haystack, const char* needle) {
+    if (!haystack || !needle || !needle[0]) return false;
+    const size_t needleLen = std::strlen(needle);
+    for (const char* p = haystack; *p; ++p) {
+        size_t i = 0;
+        while (i < needleLen && p[i] && asciiLower(p[i]) == asciiLower(needle[i])) ++i;
+        if (i == needleLen) return true;
+    }
+    return false;
+}
+
+static bool curlDetailLooksTls(const char* detail) {
+    if (!detail || !detail[0]) return false;
+    return containsAsciiNoCase(detail, "ssl") ||
+           containsAsciiNoCase(detail, "tls") ||
+           containsAsciiNoCase(detail, "certificate") ||
+           containsAsciiNoCase(detail, "openssl") ||
+           containsAsciiNoCase(detail, "x509");
+}
+
 static bool hostLooksLikeBadArchiveEdge(const char* url) {
     if (!url || !url[0]) return false;
     // Canadian / dn* storage nodes frequently fail TLS with OpenSSL 1.0.2 on Vita.
-    if (std::strstr(url, ".ca.archive.org") != nullptr) return true;
-    if (std::strstr(url, "://dn") != nullptr && std::strstr(url, "archive.org") != nullptr) return true;
+    if (containsAsciiNoCase(url, ".ca.archive.org")) return true;
+    const char* host = std::strstr(url, "://");
+    host = host ? host + 3 : url;
+    if (asciiLower(host[0]) == 'd' && asciiLower(host[1]) == 'n' &&
+        containsAsciiNoCase(host, "archive.org")) return true;
     return false;
 }
 
@@ -633,7 +660,8 @@ HttpResult HttpClient::fetchToString(
     if (rc != CURLE_OK) {
         setError(std::string("curl: ") + curl_easy_strerror(rc));
         outBody.clear();
-        if (rc == CURLE_SSL_CONNECT_ERROR || rc == CURLE_SSL_CERTPROBLEM)
+        if (rc == CURLE_SSL_CONNECT_ERROR || rc == CURLE_SSL_CERTPROBLEM ||
+            rc == CURLE_PEER_FAILED_VERIFICATION)
             return HttpResult::SslError;
         return HttpResult::NetworkError;
     }
@@ -703,7 +731,8 @@ HttpResult HttpClient::postJson(
 
     if (rc != CURLE_OK) {
         setError(std::string("curl: ") + curl_easy_strerror(rc));
-        if (rc == CURLE_SSL_CONNECT_ERROR || rc == CURLE_SSL_CERTPROBLEM)
+        if (rc == CURLE_SSL_CONNECT_ERROR || rc == CURLE_SSL_CERTPROBLEM ||
+            rc == CURLE_PEER_FAILED_VERIFICATION)
             return HttpResult::SslError;
         return HttpResult::NetworkError;
     }
@@ -771,7 +800,8 @@ HttpResult HttpClient::fetchRemoteValidators(const std::string& url, std::string
         char message[180];
         sceClibSnprintf(message, sizeof(message), "curl validator error %d: %s", static_cast<int>(result), curl_easy_strerror(result));
         setError(message);
-        return (result == CURLE_SSL_CONNECT_ERROR || result == CURLE_PEER_FAILED_VERIFICATION) ? HttpResult::SslError : HttpResult::NetworkError;
+        return (result == CURLE_SSL_CONNECT_ERROR || result == CURLE_PEER_FAILED_VERIFICATION ||
+                result == CURLE_SSL_CERTPROBLEM) ? HttpResult::SslError : HttpResult::NetworkError;
     }
     if (responseCode < 200 || responseCode >= 400) {
         char message[96];
@@ -868,7 +898,6 @@ HttpResult HttpClient::downloadToFile(
     if (resumeOffset > 0) {
         // CURLOPT_RESUME_FROM takes a long (32-bit on Vita) and breaks past ~2GB.
         // Prefer the 64-bit LARGE variant for multi-GB downloads (Game Files, etc.).
-// Always use 64-bit resume (CURLOPT_RESUME_FROM is long and breaks past ~2 GiB on Vita).
         curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(resumeOffset));
     }
 
@@ -921,7 +950,9 @@ HttpResult HttpClient::downloadToFile(
         ? maxAttemptsOverride
         : (isArchive ? 10 : 5);
     long responseCode = 0;
+    long lastSslVerifyResult = 0;
     CURLcode lastFail = CURLE_OK;
+    bool lastTlsLikeFail = false;
     // One-shot guard: if a Range request fails (curl 33), truncate and retry as full GET.
     bool rangeFallbackUsed = false;
     // archive.org: when a 302 lands on dn*/ca edges, OpenSSL 1.0.2 often fails TLS.
@@ -956,10 +987,10 @@ HttpResult HttpClient::downloadToFile(
         const bool needFresh = (attempt > 0 && seriousFail);
         curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, needFresh ? 1L : 0L);
         curl_easy_setopt(curl, CURLOPT_FORBID_REUSE, needFresh ? 1L : 0L);
-        // Drop TLS session reuse after SSL failures (stale sessions can stick on Vita).
-        if (attempt > 0 && (lastFail == CURLE_SSL_CONNECT_ERROR ||
-                            lastFail == CURLE_PEER_FAILED_VERIFICATION ||
-                            lastFail == CURLE_SSL_CERTPROBLEM)) {
+        // Broken TLS implementations can fail when a cached SSL session is reused.
+        // Disable session reuse after both direct SSL errors and transport errors that
+        // libcurl/OpenSSL explicitly diagnosed as TLS/certificate related.
+        if (attempt > 0 && lastTlsLikeFail) {
             curl_easy_setopt(curl, CURLOPT_SSL_SESSIONID_CACHE, 0L);
         }
         // UA: app identity first; after connect/SSL trouble try CDN-friendly browser UA.
@@ -969,18 +1000,16 @@ HttpResult HttpClient::downloadToFile(
             curl_easy_setopt(curl, CURLOPT_USERAGENT, UA_APP);
         }
         if (attempt > 0) {
-            char retryMsg[160];
+            char retryMsg[192];
             sceClibSnprintf(retryMsg, sizeof(retryMsg),
-                "download retry %d/%d hostHints=gitlab:%d archive:%d github:%d lastCurl=%d fresh=%d",
+                "download retry %d/%d hostHints=gitlab:%d archive:%d github:%d lastCurl=%d fresh=%d tlsLike=%d",
                 attempt + 1, kMaxAttempts, isGitlab ? 1 : 0, isArchive ? 1 : 0, isGithub ? 1 : 0,
-                static_cast<int>(lastFail), needFresh ? 1 : 0);
+                static_cast<int>(lastFail), needFresh ? 1 : 0, lastTlsLikeFail ? 1 : 0);
             httpDiagnostic(retryMsg);
             // Short early backoff; grow only after several failures.
             int delayMs = 250 * (attempt <= 3 ? attempt : 3);
             if (isArchive) delayMs = 350 * (attempt <= 4 ? attempt : 4);
-            if (lastFail == CURLE_SSL_CONNECT_ERROR ||
-                lastFail == CURLE_PEER_FAILED_VERIFICATION ||
-                lastFail == CURLE_SSL_CERTPROBLEM) {
+            if (lastTlsLikeFail) {
                 const int sslExtra = isArchive ? (600 * (attempt <= 5 ? attempt : 5)) : (500 * attempt);
                 if (sslExtra > delayMs) delayMs = sslExtra;
                 if (delayMs > 4000) delayMs = 4000;
@@ -1013,8 +1042,8 @@ HttpResult HttpClient::downloadToFile(
                 ctx.totalFromContentRange = false;
                 ctx.etag.clear();
                 ctx.lastModified.clear();
-// Always use 64-bit resume (CURLOPT_RESUME_FROM is long and breaks past ~2 GiB on Vita).
-        curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(absPos));
+                // Always use 64-bit resume (CURLOPT_RESUME_FROM is long and breaks past ~2 GiB on Vita).
+                curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(absPos));
                 if (ctx.fd >= 0)
                     sceIoLseek(ctx.fd, 0, SCE_SEEK_END);
                 char resumeMsg[140];
@@ -1034,6 +1063,11 @@ HttpResult HttpClient::downloadToFile(
         result = curl_easy_perform(curl);
         responseCode = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
+        long sslVerifyResult = 0;
+        if (curl_easy_getinfo(curl, CURLINFO_SSL_VERIFYRESULT, &sslVerifyResult) == CURLE_OK)
+            lastSslVerifyResult = sslVerifyResult;
+        else
+            lastSslVerifyResult = 0;
 
         if (ctx.cancelled) break;
 
@@ -1088,6 +1122,7 @@ HttpResult HttpClient::downloadToFile(
             ctx.etag.clear();
             ctx.lastModified.clear();
             curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
+            lastTlsLikeFail = false;
             continue;
         }
 
@@ -1134,7 +1169,8 @@ HttpResult HttpClient::downloadToFile(
             ctx.restartedFromZero = true;
             ctx.etag.clear();
             ctx.lastModified.clear();
-curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
+            curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
+            lastTlsLikeFail = false;
             continue;
         }
 
@@ -1150,6 +1186,7 @@ curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
                 attempt + 1, responseCode, ctx.retryAfterSeconds);
             httpDiagnostic(httpRetry);
             lastFail = CURLE_HTTP_RETURNED_ERROR;
+            lastTlsLikeFail = false;
             if (resumeOffset == 0 && ctx.fd >= 0 && ctx.downloaded > 0) {
                 sceIoClose(ctx.fd);
                 ctx.fd = sceIoOpen(destinationPath.c_str(), SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
@@ -1196,8 +1233,9 @@ curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
             ctx.firstWrite = true;
             ctx.restartedFromZero = true;
 
-curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
+            curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
             lastFail = result;
+            lastTlsLikeFail = false;
             continue;
         }
 
@@ -1216,22 +1254,44 @@ curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
             result == CURLE_GOT_NOTHING ||
             result == CURLE_PARTIAL_FILE ||
             result == CURLE_HTTP_RETURNED_ERROR;
-        char failMsg[420];
+
+        const bool directSslFailure =
+            result == CURLE_SSL_CONNECT_ERROR ||
+            result == CURLE_PEER_FAILED_VERIFICATION ||
+            result == CURLE_SSL_CERTPROBLEM ||
+#ifdef CURLE_SSL_CIPHER
+            result == CURLE_SSL_CIPHER ||
+#endif
+            false;
+        const bool transportTlsDetail =
+            (result == CURLE_RECV_ERROR || result == CURLE_SEND_ERROR ||
+             result == CURLE_GOT_NOTHING || result == CURLE_PARTIAL_FILE) &&
+            curlDetailLooksTls(curlError);
+        // OpenSSL can expose a non-zero verification result even when peer verification
+        // is disabled. On Archive.org, combine that signal with CURLE_RECV_ERROR (56)
+        // to detect broken TLS storage edges like the reported self-signed-chain case.
+        const bool archiveVerifyRecv =
+            isArchive && result == CURLE_RECV_ERROR && lastSslVerifyResult != 0;
+        const bool tlsLikeFailure = directSslFailure || transportTlsDetail || archiveVerifyRecv;
+
+        char failMsg[520];
         sceClibSnprintf(failMsg, sizeof(failMsg),
-            "attempt %d failed curl=%d %s retryable=%d detail=%s",
+            "attempt %d failed curl=%d %s retryable=%d tls_like=%d ssl_verify=%ld detail=%s",
             attempt + 1,
             static_cast<int>(result),
             curl_easy_strerror(result),
             retryable ? 1 : 0,
+            tlsLikeFailure ? 1 : 0,
+            lastSslVerifyResult,
             curlError[0] ? curlError : "-");
         httpDiagnostic(failMsg);
         lastFail = result;
+        lastTlsLikeFail = tlsLikeFailure;
 
-        // archive.org edge failover: after SSL failure, switch to metadata-derived hosts.
-        if (isArchive &&
-            (result == CURLE_SSL_CONNECT_ERROR ||
-             result == CURLE_PEER_FAILED_VERIFICATION ||
-             result == CURLE_SSL_CERTPROBLEM)) {
+        // archive.org edge failover: switch not only on direct SSL CURLcodes, but also
+        // when a transport error (notably curl 56) contains explicit TLS/certificate
+        // diagnostics from the OpenSSL backend.
+        if (isArchive && tlsLikeFailure) {
             const char* eff = nullptr;
             curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &eff);
             const bool badEdge = hostLooksLikeBadArchiveEdge(eff) || hostLooksLikeBadArchiveEdge(activeUrl.c_str());
@@ -1243,8 +1303,10 @@ curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
                 }
                 if (archiveAltIndex < archiveAltUrls.size()) {
                     activeUrl = archiveAltUrls[archiveAltIndex++];
-                    char sw[320];
-                    sceClibSnprintf(sw, sizeof(sw), "archive failover switch -> %s", activeUrl.c_str());
+                    char sw[360];
+                    sceClibSnprintf(sw, sizeof(sw),
+                        "archive failover switch curl=%d ssl_verify=%ld -> %s",
+                        static_cast<int>(result), lastSslVerifyResult, activeUrl.c_str());
                     httpDiagnostic(sw);
                     curl_easy_setopt(curl, CURLOPT_URL, activeUrl.c_str());
                     curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, 1L);
@@ -1283,7 +1345,7 @@ curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
     sceClibSnprintf(
         resultMsg,
         sizeof(resultMsg),
-        "RESULT curl=%d status=%ld bytes=%llu absolute=%llu total=%llu speed=%llu range=%d restarted=%d redirects=%ld effective_url=%s curl_detail=%s",
+        "RESULT curl=%d status=%ld bytes=%llu absolute=%llu total=%llu speed=%llu range=%d restarted=%d redirects=%ld ssl_verify=%ld tls_like=%d effective_url=%s curl_detail=%s",
         static_cast<int>(result),
         responseCode,
         (unsigned long long)ctx.downloaded,
@@ -1293,6 +1355,8 @@ curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
         lastRangeAccepted_ ? 1 : 0,
         ctx.restartedFromZero ? 1 : 0,
         redirectCount,
+        lastSslVerifyResult,
+        lastTlsLikeFail ? 1 : 0,
         effectiveUrlCopy[0] ? effectiveUrlCopy : "-",
         curlError[0] ? curlError : "-");
     httpDiagnostic(resultMsg);
@@ -1311,7 +1375,7 @@ curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
         return HttpResult::IoError;
     }
     if (result != CURLE_OK) {
-        char message[420];
+        char message[460];
         sceClibSnprintf(
             message,
             sizeof(message),
@@ -1321,7 +1385,7 @@ curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, static_cast<curl_off_t>(0));
             curlError[0] ? " | " : "",
             curlError[0] ? curlError : "");
         setError(message);
-        return (result == CURLE_SSL_CONNECT_ERROR || result == CURLE_PEER_FAILED_VERIFICATION) ? HttpResult::SslError : HttpResult::NetworkError;
+        return lastTlsLikeFail ? HttpResult::SslError : HttpResult::NetworkError;
     }
     const bool rangeAlreadyComplete =
         responseCode == 416 &&
