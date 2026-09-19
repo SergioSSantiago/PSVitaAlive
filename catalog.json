@@ -53,6 +53,52 @@
     ]
   },
   {
+    "id": "smash-melee-vita",
+    "title_id": "MLVITA002",
+    "name": "Smash Melee Vita",
+    "description": "Native PlayStation Vita port of Super Smash Bros. Melee (NTSC-U 1.02), built from doldecomp/melee on aurora.",
+    "long_description": "Native PlayStation Vita port of Super Smash Bros. Melee (NTSC-U 1.02), built from doldecomp/melee on aurora.",
+    "author_ids": [
+      "zm2283145"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "arcade",
+      "platformer",
+      "strategy"
+    ],
+    "version": "0.6.0",
+    "version_date": "2026-09-18",
+    "requirements": "- The Vita runtime shader compiler, libshacccg.suprx, installed at ur0:data/libshacccg.suprx. This proprietary module is not included in the repository or release package; obtain it from your own legally acquired Vita software using the appropriate homebrew setup instructions.\n- Your own legally obtained, uncompressed Super Smash Bros. Melee USA revision 2 / NTSC-U 1.02 disc image (GALE01), named GALE01.iso. Other regions/revisions and compressed RVZ/CISO images are not supported by this Vita backend. Renaming a compressed image does not decompress it.\n- Writable storage on ux0: for the image, installed application, saves, and shader cache. A full-size disc image alone is 1,459,978,240 bytes (about 1.36 GiB); leave additional free space.",
+    "size": 2936013,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/smash-melee-vita/SmashMeleevita%20v0.6.0.vpk",
+        "size": 2936013,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/smash-melee-vita/Game%20Files.zip",
+        "size": 1503238554,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "GitHub",
+        "url": "https://github.com/zm2283145/melee-Vita"
+      }
+    ],
+    "icon": "https://archive.org/download/smash-melee-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/smash-melee-vita/pic0.png"
+    ]
+  },
+  {
     "id": "golden-balloon",
     "title_id": "GBLN00001",
     "name": "Golden Balloon",
