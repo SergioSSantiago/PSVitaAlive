@@ -3027,6 +3027,27 @@
     "icon": "https://raw.githubusercontent.com/VegettoSan/PSVitaAlive/main/authors/icon/autoricon.png"
   },
   {
+    "id": "franckrst",
+    "name": "Franckrst",
+    "avatar": "https://avatars.githubusercontent.com/u/3009263?v=4",
+    "bio": "Dev",
+    "links": [
+      {
+        "type": "Repository",
+        "name": "Github",
+        "url": "https://github.com/Franckrst",
+        "recommended": false
+      },
+      {
+        "type": "Official Website",
+        "name": "Website",
+        "url": "http://franckrst.com/",
+        "recommended": false
+      }
+    ],
+    "icon": "https://avatars.githubusercontent.com/u/3009263?v=4"
+  },
+  {
     "id": "frangarcj",
     "name": "frangarcj",
     "avatar": "https://github.com/frangarcj.png",
