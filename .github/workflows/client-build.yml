@@ -31,22 +31,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker pull vitasdk/vitasdk:2026.08
+          docker pull vitasdk/vitasdk:2026.08-minimal
           docker run --rm \
             -v "$PWD:/workspace" \
             -w "/workspace/Client PSVitaAlive" \
-            vitasdk/vitasdk:2026.08 \
+            vitasdk/vitasdk:2026.08-minimal \
             bash -lc '
               set -euo pipefail
               echo "VITASDK=$VITASDK"
 
-              # The full VitaSDK image intentionally carries every package, including
-              # both legacy `openssl` (1.0.2, required by the stock curl package) and
-              # `openssl-1.1.1`. The latter can overwrite libssl/libcrypto in the full
-              # image. Re-install the declared curl dependency so this build matches
-              # PSVitaAlive production instead of accidentally linking curl 8.x against
-              # the incompatible alternate OpenSSL package.
-              vdpm -f openssl
+              # Use the official minimal image and install only PSVitaAlive's target
+              # dependencies. The full image carries mutually exclusive OpenSSL
+              # variants because it contains every VitaSDK package; an explicit package
+              # set gives curl/libzip the legacy openssl package they declare and avoids
+              # an artificial CI-only libssl/libcrypto collision.
+              vdpm install \
+                zlib bzip2 xz zstd \
+                libpng libjpeg-turbo freetype libvita2d \
+                openssl curl libzip taihen
 
               echo "Installed network package metadata:"
               vdpm info openssl || true
@@ -54,8 +56,8 @@ jobs:
               vdpm info libzip || true
 
               # GCC 15 libstdc++ uses pthread_once for guarded local statics. -pthread
-              # makes the driver place pthread support with its runtime libraries; the
-              # project also keeps its explicit pthread link for older VitaSDK setups.
+              # lets the driver place pthread support with its runtime libraries; the
+              # project retains its explicit pthread link for older VitaSDK setups.
               cmake -S . -B build-ci \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_EXE_LINKER_FLAGS="-pthread"
