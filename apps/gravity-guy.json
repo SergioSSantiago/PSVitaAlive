@@ -12,8 +12,8 @@
     "arcade",
     "platformer"
   ],
-  "version": "1.0",
-  "version_date": "2026-09-06",
+  "version": "1.1",
+  "version_date": "2026-09-08",
   "requirements": "- no data",
   "size": 4194304,
   "status": "Verified",
@@ -21,7 +21,7 @@
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://archive.org/download/gravity-guy-ps-vita/gravityguy.vpk",
+      "url": "https://archive.org/download/gravity-guy-ps-vita/gravityguy%20v1.1.vpk",
       "size": 4194304,
       "recommended": true
     },
