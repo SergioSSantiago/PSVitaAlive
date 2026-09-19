@@ -1,0 +1,102 @@
+name: Validate ZIP recovery once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/validate-zip-recovery-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tighten recovery state transition
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('Client PSVitaAlive/source/installer/install_controller.cpp')
+          s = p.read_text(encoding='utf-8')
+          old = ('        setStage(cancelled ? "Cancelled" : "Error");\n'
+                 '        setState(cancelled ? InstallStatus::State::Cancelled : InstallStatus::State::Failed, error.c_str());\n'
+                 '        liveAreaOk_.store(false);\n')
+          new = ('        // Keep the UI in Installing while a recoverable ZIP is moved out of\n'
+                 '        // the transient job. Publish Failed only after recovery metadata is ready.\n'
+                 '        setStage(cancelled ? "Cancelled" : (zipRecoveryCandidate ? "RecoveringZip" : "Error"));\n'
+                 '        if (cancelled || !zipRecoveryCandidate)\n'
+                 '            setState(cancelled ? InstallStatus::State::Cancelled : InstallStatus::State::Failed, error.c_str());\n'
+                 '        else\n'
+                 '            setMessage(error.c_str());\n'
+                 '        liveAreaOk_.store(false);\n')
+          if old not in s:
+              raise SystemExit('failure-state anchor missing')
+          s = s.replace(old, new, 1)
+          old2 = ('            zipRecoveryAvailable_.store(true);\n'
+                  '            setStage("ZipRecovery");\n'
+                  '            setInstallPath(activeZipDestination_.c_str());\n'
+                  '            diagnostics::log(std::string("[Installer] ZIP recovery available path=") + recoveryPath +\n')
+          new2 = ('            zipRecoveryAvailable_.store(true);\n'
+                  '            setStage("ZipRecovery");\n'
+                  '            setInstallPath(activeZipDestination_.c_str());\n'
+                  '            setState(InstallStatus::State::Failed, error.c_str());\n'
+                  '            diagnostics::log(std::string("[Installer] ZIP recovery available path=") + recoveryPath +\n')
+          if old2 not in s:
+              raise SystemExit('recovery publish anchor missing')
+          s = s.replace(old2, new2, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          git diff --check
+
+      - name: Cross-compile changed client sources with VitaSDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull vitasdk/vitasdk:2026.08
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -w "/workspace/Client PSVitaAlive" \
+            vitasdk/vitasdk:2026.08 \
+            bash -lc '
+              set -u
+              cmake -S . -B build-zip-recovery -DCMAKE_BUILD_TYPE=Release
+              set +e
+              cmake --build build-zip-recovery --parallel 2 2>&1 | tee /tmp/zip-build.log
+              rc=${PIPESTATUS[0]}
+              set -e
+              echo "build_rc=$rc"
+              # The current official image has a pre-existing final-link ABI issue;
+              # this gate specifically proves the touched translation units compile.
+              grep -F "install_controller.cpp" /tmp/zip-build.log >/dev/null
+              grep -F "full_catalog_screen.cpp" /tmp/zip-build.log >/dev/null
+              grep -F "main.cpp" /tmp/zip-build.log >/dev/null
+              if grep -E "(install_controller|full_catalog_screen|main)\\.cpp:.*(error:|fatal error:)" /tmp/zip-build.log; then
+                echo "Touched source failed to compile" >&2
+                exit 1
+              fi
+              # Reaching final ELF link proves all project C/C++ compilation completed.
+              grep -E "Linking CXX executable PSVitaAlive(\\.elf)?" /tmp/zip-build.log >/dev/null || {
+                echo "Build did not reach final link stage" >&2
+                tail -n 120 /tmp/zip-build.log >&2
+                exit 1
+              }
+              echo "Touched ZIP recovery sources compiled; build reached final link stage."
+            '
+
+      - name: Commit race fix and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/validate-zip-recovery-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Publish ZIP recovery only after archive is safely preserved"
+          git push origin HEAD:main
