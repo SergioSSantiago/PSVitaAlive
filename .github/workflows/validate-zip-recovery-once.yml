@@ -39,9 +39,14 @@ jobs:
                  '        else\n'
                  '            setMessage(error.c_str());\n'
                  '        liveAreaOk_.store(false);\n')
-          if old not in s:
-              raise SystemExit('failure-state anchor missing')
-          s = s.replace(old, new, 1)
+          pos = s.rfind(old)
+          if pos < 0:
+              raise SystemExit('final install failure-state anchor missing')
+          # Guard against accidentally modifying the earlier network-download failure block.
+          install_fail_pos = s.rfind('if (result != InstallDispatchResult::Ok)', 0, pos)
+          if install_fail_pos < 0:
+              raise SystemExit('anchor is not inside final install/extract failure block')
+          s = s[:pos] + new + s[pos + len(old):]
 
           pattern = re.compile(
               r'(?m)^(\s*)zipRecoveryAvailable_\.store\(true\);\n'
@@ -49,7 +54,7 @@ jobs:
               r'^\s*setInstallPath\(activeZipDestination_\.c_str\(\)\);\n'
               r'^(\s*)diagnostics::log\(std::string\("\[Installer\] ZIP recovery available path="\) \+ recoveryPath \+\n'
           )
-          match = pattern.search(s)
+          match = pattern.search(s, install_fail_pos)
           if not match:
               raise SystemExit('recovery publish anchor missing')
           indent = match.group(1)
