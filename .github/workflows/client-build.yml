@@ -1,0 +1,59 @@
+name: Build PS Vita Client
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Client PSVitaAlive/**"
+      - ".github/workflows/client-build.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Client PSVitaAlive/**"
+      - ".github/workflows/client-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psvitaalive-client-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build with official VitaSDK image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull vitasdk/vitasdk:2026.08
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -w "/workspace/Client PSVitaAlive" \
+            vitasdk/vitasdk:2026.08 \
+            bash -lc '
+              set -euo pipefail
+              echo "VITASDK=$VITASDK"
+              cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
+              cmake --build build-ci --parallel 2
+              test -s build-ci/PSVitaAlive.vpk || {
+                echo "Expected build-ci/PSVitaAlive.vpk was not produced" >&2
+                find build-ci -maxdepth 2 -type f -printf "%p %s bytes\n" | sort
+                exit 1
+              }
+              ls -lh build-ci/PSVitaAlive.vpk
+            '
+
+      - name: Upload VPK smoke-build artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PSVitaAlive-ci-${{ github.sha }}
+          path: Client PSVitaAlive/build-ci/PSVitaAlive.vpk
+          if-no-files-found: error
+          retention-days: 7
