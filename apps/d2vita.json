@@ -1,0 +1,53 @@
+{
+  "id": "d2vita",
+  "title_id": "DTWO00001",
+  "name": "D2Vita",
+  "description": "Port of Diablo II: Lord of Destruction to the PlayStation Vita.",
+  "long_description": "Port of Diablo II: Lord of Destruction to the PlayStation Vita.\n\nTarget: 960×544 · classic renderer.\nStrategy: run the genuine Diablo II: LoD 1.14d Game.exe through a Win32/x86 runtime (PE loader + import bridge + an x86→ARMv7 dynarec derived from Box86), shimming only the OS layer — run Diablo, don't rewrite Diablo. An earlier clean-room D2MOO+Ghidra-decompilation approach was abandoned before it shipped anything.\nStatus: boots and plays solo (Rogue Encampment) on real Vita hardware; online play (realm → character → game → act) proven end-to-end on console, including against official Battle.net. See ROADMAP.md for what's done and what's open.",
+  "author_ids": [
+    "franckrst"
+  ],
+  "category_id": "ports",
+  "subcategory_ids": [
+    "puzzle",
+    "rpg",
+    "strategy"
+  ],
+  "version": "0.1.5",
+  "version_date": "2026-09-19",
+  "requirements": "- Provide your own from a legitimate copy of D2 / LoD",
+  "size": 7759462,
+  "status": "Verified",
+  "links": [
+    {
+      "type": "Download",
+      "name": "VPK",
+      "url": "https://archive.org/download/D2Vita/d2vita%20v0.1.5.vpk",
+      "size": 7759462,
+      "recommended": true
+    },
+    {
+      "type": "Game Files",
+      "name": "Game Files English",
+      "url": "https://archive.org/download/D2Vita/Game%20Files%20English.zip",
+      "size": 2018634629,
+      "extract_path": "ux0:data/"
+    },
+    {
+      "type": "Game Files",
+      "name": "Game Files Spanish",
+      "url": "https://archive.org/download/D2Vita/Game%20Files%20Spanish.zip",
+      "size": 2190433321,
+      "extract_path": "ux0:data/"
+    },
+    {
+      "type": "Repository",
+      "name": "GitHub",
+      "url": "https://github.com/Franckrst/D2Vita"
+    }
+  ],
+  "icon": "https://archive.org/download/D2Vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/D2Vita/shot0.png"
+  ]
+}
