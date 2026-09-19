@@ -546,6 +546,21 @@ static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* userdata
     return bytes;
 }
 
+// CURLOPT_XFERINFOFUNCTION keeps cancellation responsive even while a server
+// is connected but not delivering body data. writeCallback alone cannot see
+// cancellation during a low-speed/stalled period.
+static int transferProgressCallback(
+    void* userdata, curl_off_t, curl_off_t, curl_off_t, curl_off_t
+) {
+    TransferContext* ctx = static_cast<TransferContext*>(userdata);
+    if (!ctx) return 0;
+    if (ctx->shouldCancel && ctx->shouldCancel()) {
+        ctx->cancelled = true;
+        return 1; // libcurl -> CURLE_ABORTED_BY_CALLBACK
+    }
+    return 0;
+}
+
 } // namespace
 
 const char* toString(HttpResult r) {
@@ -944,7 +959,18 @@ HttpResult HttpClient::downloadToFile(
     curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, LOW_SPEED_LIMIT);
     curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, LOW_SPEED_TIME_SECONDS);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
+#if LIBCURL_VERSION_NUM >= 0x075500
+    // Catalog URLs are external input. Keep both the initial transfer and all
+    // redirects on HTTP(S); modern libcurl otherwise supports many schemes.
+    curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");
+    curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+#else
+    curl_easy_setopt(curl, CURLOPT_PROTOCOLS, (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+    curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS, (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+#endif
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, transferProgressCallback);
+    curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &ctx);
     curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, static_cast<long>(DOWNLOAD_BUFFER_SIZE));
 
     if (resumeOffset > 0) {
@@ -1255,6 +1281,29 @@ HttpResult HttpClient::downloadToFile(
                 ctx.fd = sceIoOpen(destinationPath.c_str(), SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
                 ctx.downloaded = 0;
             }
+
+            // 5xx from archive.org is commonly edge-specific. Resolve the item metadata
+            // once and rotate to another storage node before spending more retries on
+            // the same failing edge. 408/425/429 keep the normal retry path.
+            if (isArchive && responseCode >= 500) {
+                if (!archiveMetaTried) {
+                    archiveMetaTried = true;
+                    buildArchiveAlternateUrls(url, archiveAltUrls);
+                    archiveAltIndex = 0;
+                }
+                if (archiveAltIndex < archiveAltUrls.size()) {
+                    activeUrl = archiveAltUrls[archiveAltIndex++];
+                    char sw[360];
+                    sceClibSnprintf(sw, sizeof(sw),
+                        "archive failover switch HTTP=%ld -> %s",
+                        responseCode, activeUrl.c_str());
+                    httpDiagnostic(sw);
+                    curl_easy_setopt(curl, CURLOPT_URL, activeUrl.c_str());
+                    curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, 1L);
+                    curl_easy_setopt(curl, CURLOPT_FORBID_REUSE, 1L);
+                    curl_easy_setopt(curl, CURLOPT_SSL_SESSIONID_CACHE, 0L);
+                }
+            }
             continue;
         }
 
@@ -1351,10 +1400,18 @@ HttpResult HttpClient::downloadToFile(
         lastFail = result;
         lastTlsLikeFail = tlsLikeFailure;
 
-        // archive.org edge failover: switch not only on direct SSL CURLcodes, but also
-        // when a transport error (notably curl 56) contains explicit TLS/certificate
-        // diagnostics from the OpenSSL backend.
-        if (isArchive && tlsLikeFailure) {
+        // archive.org edge failover: storage nodes can fail as TLS errors, plain
+        // receive/send failures, timeouts, or half-open connections. Rotate away
+        // from the edge for all transport-like failures, not only certificate text.
+        const bool archiveTransportFailure =
+            tlsLikeFailure ||
+            result == CURLE_COULDNT_CONNECT ||
+            result == CURLE_OPERATION_TIMEDOUT ||
+            result == CURLE_RECV_ERROR ||
+            result == CURLE_SEND_ERROR ||
+            result == CURLE_GOT_NOTHING ||
+            result == CURLE_PARTIAL_FILE;
+        if (isArchive && archiveTransportFailure) {
             const char* eff = nullptr;
             curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &eff);
             const bool badEdge = hostLooksLikeBadArchiveEdge(eff) || hostLooksLikeBadArchiveEdge(activeUrl.c_str());

@@ -461,16 +461,32 @@ ZipResult ZipExtractor::extract(
                 uncompressedTotal += entrySize;
                 prog.bytesTotal += entrySize;
             }
-            if ((zs.valid & ZIP_STAT_COMP_METHOD) &&
-                zs.comp_method != 0 && zs.comp_method != 8) {
-                char warn[200];
-                sceClibSnprintf(
-                    warn, sizeof(warn),
-                    "entry uses compression method=%u (%s) name=%s — may be unsupported on Vita",
-                    static_cast<unsigned>(zs.comp_method),
-                    compressionMethodName(static_cast<zip_uint16_t>(zs.comp_method)),
-                    zs.name);
-                diagnostics::log(std::string("[ZipExtractor] ") + warn);
+            if (zs.valid & ZIP_STAT_COMP_METHOD) {
+                // libzip can report methods that the current build cannot decompress.
+                // Fail before creating any output instead of discovering this halfway
+                // through a multi-gigabyte extraction.
+                if (!zip_compression_method_supported(static_cast<zip_int32_t>(zs.comp_method), 1)) {
+                    char err[260];
+                    sceClibSnprintf(
+                        err, sizeof(err),
+                        "unsupported ZIP compression method=%u (%s) entry=%s",
+                        static_cast<unsigned>(zs.comp_method),
+                        compressionMethodName(static_cast<zip_uint16_t>(zs.comp_method)),
+                        zs.name);
+                    setError(err);
+                    zip_close(za);
+                    return ZipResult::InvalidEntry;
+                }
+                if (zs.comp_method != 0 && zs.comp_method != 8) {
+                    char warn[200];
+                    sceClibSnprintf(
+                        warn, sizeof(warn),
+                        "entry uses compression method=%u (%s) name=%s",
+                        static_cast<unsigned>(zs.comp_method),
+                        compressionMethodName(static_cast<zip_uint16_t>(zs.comp_method)),
+                        zs.name);
+                    diagnostics::log(std::string("[ZipExtractor] ") + warn);
+                }
             }
             if (!isDir && zs.size >= 1024ULL * 1024ULL * 1024ULL) {
                 char warn[220];

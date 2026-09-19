@@ -82,6 +82,9 @@ The production client also:
 - throttles metadata writes to reduce storage churn during multi-GB transfers;
 - re-resolves expired MediaFire URLs while preserving the existing partial file and attempts a safe Range resume;
 - checks free space periodically while a long transfer is active.
+- uses libcurl's XFERINFO progress callback so cancellation is still observed while a connection is stalled;
+- restricts initial URLs and redirects to HTTP/HTTPS only;
+- rotates Archive.org storage hosts for transport failures and server-side 5xx responses, not only explicit TLS failures.
 
 ZIP extraction caches archive size once, rejects aggregate-size overflow, and checks both `zip_fclose()` and Vita file-close results before declaring an entry complete.
 
