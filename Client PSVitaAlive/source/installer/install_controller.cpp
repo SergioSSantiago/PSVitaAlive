@@ -122,6 +122,48 @@ std::string formatBytesShort(uint64_t b) {
 
 
 constexpr uint64_t RESULT_AUTO_DISMISS_MS = 8000;
+
+bool looksLikeDamagedZipError(const std::string& e) {
+    static const char* needles[] = {
+        "CRC", "crc", "compressed data", "data error", "unexpected end",
+        "premature", "truncated", "incomplete", "EOCD", "ZIP64",
+        "size mismatch after extract", "size mismatch after download"
+    };
+    for (const char* n : needles) if (e.find(n) != std::string::npos) return true;
+    return false;
+}
+
+std::string sanitizeRecoveryComponent(const std::string& input, const char* fallback) {
+    std::string out;
+    out.reserve(input.size());
+    for (unsigned char uc : input) {
+        const char ch = static_cast<char>(uc);
+        if (uc < 32 || ch == '/' || ch == '\\' || ch == ':') {
+  if (!out.empty() && out.back() != '_') out.push_back('_');
+  continue;
+        }
+        out.push_back(ch);
+    }
+    while (!out.empty() && (out.back() == ' ' || out.back() == '.')) out.pop_back();
+    while (!out.empty() && out.front() == ' ') out.erase(out.begin());
+    if (out.empty()) out = fallback ? fallback : "unknown";
+    if (out.size() > 96) out.resize(96);
+    return out;
+}
+
+std::string uniqueRecoveryPath(StorageManager& st, const std::string& dir, const std::string& fileName) {
+    const std::string safe = sanitizeRecoveryComponent(fileName, "archive.zip");
+    std::string candidate = dir + "/" + safe;
+    if (!st.exists(candidate)) return candidate;
+    const size_t dot = safe.find_last_of('.');
+    const std::string stem = (dot == std::string::npos) ? safe : safe.substr(0, dot);
+    const std::string ext = (dot == std::string::npos) ? std::string() : safe.substr(dot);
+    for (int i = 2; i <= 999; ++i) {
+        candidate = dir + "/" + stem + " (" + std::to_string(i) + ")" + ext;
+        if (!st.exists(candidate)) return candidate;
+    }
+    return dir + "/" + stem + "_recovered" + ext;
+}
 }
 
 
@@ -269,14 +311,65 @@ void InstallController::acknowledgeResult() {
     const auto s = static_cast<InstallStatus::State>(state_.load());
     if (s != InstallStatus::State::Completed && s != InstallStatus::State::Failed
         && s != InstallStatus::State::Cancelled) return;
+    // A recovered ZIP needs an explicit Keep/Delete decision. Do not let a generic
+    // close path accidentally leave a multi-GB file or erase it without consent.
+    if (zipRecoveryAvailable_.load()) {
+        diagnostics::log("[Installer] result acknowledge ignored: ZIP recovery decision pending");
+        return;
+    }
     diagnostics::log("[Installer] result acknowledged by UI");
     resultShownAtMs_.store(0);
     liveAreaOk_.store(false);
     needsReboot_.store(false);
     setInstallPath("");
     setTitleId("");
+    zipRecoveryAvailable_.store(false);
+    zipRecoveryMayBeCorrupt_.store(false);
+    zipRecoveryPath_.clear();
+    zipRecoveryInfoPath_.clear();
+    zipRecoveryExtractPath_.clear();
+    zipRecoveryJobId_.clear();
     setStage("Idle");
     setState(InstallStatus::State::Idle, ::psvitaalive::L(::psvitaalive::TextId::InstMsgReady));
+}
+
+bool InstallController::resolveZipRecovery(bool keep) {
+    if (!zipRecoveryAvailable_.load()) return false;
+    if (static_cast<InstallStatus::State>(state_.load()) != InstallStatus::State::Failed) return false;
+
+    StorageManager st;
+    if (keep) {
+        if (!zipRecoveryPath_.empty() && !st.exists(zipRecoveryPath_)) {
+  setMessage(::psvitaalive::L("ZIP_RECOVERY_KEEP_FAILED"));
+  diagnostics::log("[Installer] ZIP recovery keep failed: archive missing at " + zipRecoveryPath_);
+  return false;
+        }
+        diagnostics::log("[Installer] ZIP recovery action=kept path=" + zipRecoveryPath_);
+        // If the fallback still lives in the completed job directory, leave that
+        // completed job intact. Normal startup cleanup preserves completed jobs.
+        zipRecoveryJobId_.clear();
+    } else {
+        bool ok = true;
+        if (!zipRecoveryJobId_.empty()) {
+  ok = downloads_.cleanupCompletedJob(zipRecoveryJobId_);
+        } else if (!zipRecoveryPath_.empty() && st.exists(zipRecoveryPath_)) {
+  ok = st.removeFile(zipRecoveryPath_);
+        }
+        if (ok && !zipRecoveryInfoPath_.empty() && st.exists(zipRecoveryInfoPath_))
+  st.removeFile(zipRecoveryInfoPath_);
+        if (!ok) {
+  setMessage(::psvitaalive::L("ZIP_RECOVERY_DELETE_FAILED"));
+  diagnostics::log("[Installer] ZIP recovery delete failed path=" + zipRecoveryPath_);
+  return false;
+        }
+        diagnostics::log("[Installer] ZIP recovery action=deleted path=" + zipRecoveryPath_);
+    }
+
+    zipRecoveryAvailable_.store(false);
+    zipRecoveryMayBeCorrupt_.store(false);
+    zipRecoveryJobId_.clear();
+    acknowledgeResult();
+    return true;
 }
 
 bool InstallController::busy() const {
@@ -285,11 +378,13 @@ bool InstallController::busy() const {
 }
 
 void InstallController::setPendingCatalogMeta(const std::string& appId, const std::string& version,
-                                                   const std::string& versionDate, int revision) {
+                                                   const std::string& versionDate, int revision,
+                                                   const std::string& titleId) {
     pendingAppId_ = appId;
     pendingCatalogVersion_ = version;
     pendingVersionDate_ = versionDate;
     pendingReleaseRevision_ = revision;
+    pendingTitleId_ = titleId;
 }
 
 bool InstallController::requestInstall(
@@ -460,6 +555,13 @@ bool InstallController::requestInstall(
     activeJobId_ = jobId;
     activeZipDestination_ = zipDestination;
     activeFileName_ = fileName;
+    activeDisplayTitle_ = niceTitle;
+    zipRecoveryAvailable_.store(false);
+    zipRecoveryMayBeCorrupt_.store(false);
+    zipRecoveryPath_.clear();
+    zipRecoveryInfoPath_.clear();
+    zipRecoveryExtractPath_.clear();
+    zipRecoveryJobId_.clear();
     activeLinkType_ = linkType;
     activePluginSection_ = pluginSection;
     activePluginLine_ = pluginLine;
@@ -586,6 +688,12 @@ InstallStatus InstallController::status() const {
     result.titleId = titleId_;
     result.liveAreaOk = liveAreaOk_.load();
     result.needsReboot = needsReboot_.load();
+    result.zipRecoveryAvailable = zipRecoveryAvailable_.load();
+    result.zipRecoveryMayBeCorrupt = zipRecoveryMayBeCorrupt_.load();
+    if (result.zipRecoveryAvailable) {
+        result.zipRecoveryPath = zipRecoveryPath_;
+        result.zipRecoveryExtractPath = zipRecoveryExtractPath_;
+    }
     result.resultAutoCloseRemainingMs = 0;
     if (result.state == InstallStatus::State::Completed) {
         const uint64_t shown = resultShownAtMs_.load();
@@ -919,10 +1027,18 @@ int InstallController::workerMain() {
     }
 
 
+    FormatDetector payloadDetector;
+    const DetectResult downloadedPayload = payloadDetector.detectFile(job->finalPath);
+    const bool zipRecoveryCandidate =
+        downloadedPayload.format == FileFormat::Zip && !activeZipDestination_.empty();
+    diagnostics::log(std::string("[Installer] ZIP recovery candidate=") +
+        (zipRecoveryCandidate ? "yes" : "no") +
+        " format=" + toString(downloadedPayload.format) +
+        " extract_path=" + (activeZipDestination_.empty() ? "-" : activeZipDestination_));
+
     std::string directRifPath;
     {
-        FormatDetector det;
-        const DetectResult dr = det.detectFile(job->finalPath);
+        const DetectResult& dr = downloadedPayload;
         const std::string ext = FormatDetector::extensionOf(job->finalPath);
         const bool isPkg = (dr.format == FileFormat::Pkg) || (ext == "pkg");
         if (isPkg) {
@@ -1016,19 +1132,10 @@ int InstallController::workerMain() {
             " failed: " + lastInstallError);
 
         // Deterministic archive corruption / unsupported formats must not spin retries.
-        const bool corruptArchive =
-            lastInstallError.find("CRC") != std::string::npos ||
-            lastInstallError.find("crc") != std::string::npos ||
-            lastInstallError.find("compressed data") != std::string::npos ||
-            lastInstallError.find("data error") != std::string::npos ||
-            lastInstallError.find("unexpected end") != std::string::npos ||
-            lastInstallError.find("premature") != std::string::npos ||
-            lastInstallError.find("truncated") != std::string::npos ||
+        const bool corruptArchive = looksLikeDamagedZipError(lastInstallError) ||
             lastInstallError.find("Unsupported compression") != std::string::npos ||
             lastInstallError.find("unsupported compression") != std::string::npos ||
-            lastInstallError.find("encryption") != std::string::npos ||
-            lastInstallError.find("size mismatch after extract") != std::string::npos ||
-            lastInstallError.find("size mismatch after download") != std::string::npos;
+            lastInstallError.find("encryption") != std::string::npos;
         const bool hardPermanent =
             result == InstallDispatchResult::InvalidArgument ||
             result == InstallDispatchResult::UnsupportedFormat ||
@@ -1074,9 +1181,67 @@ int InstallController::workerMain() {
         setInstallPath(dispatcher_.lastInstallPath().c_str());
         setTitleId(dispatcher_.lastTitleId().c_str());
         diagnostics::log(std::string("[Installer] ") + (cancelled ? "installation cancelled: " : "installation failed: ") + error +
-            " attempts=" + std::to_string(attemptsUsed));
-        downloads_.cleanupCompletedJob(activeJobId_);
-        activeJobId_.clear();
+  " attempts=" + std::to_string(attemptsUsed));
+
+        // Manual recovery is intentionally ZIP-only. A completed data ZIP that
+        // failed in the extraction phase is valuable user data; direct VPK/PKG,
+        // plugin jobs, cancellations and incomplete network downloads keep their
+        // existing cleanup behavior.
+        if (!cancelled && zipRecoveryCandidate) {
+  StorageManager st;
+  const std::string key = sanitizeRecoveryComponent(
+      !pendingTitleId_.empty() ? pendingTitleId_ : pendingAppId_, "unknown");
+  const std::string recoveryDir = std::string(StorageManager::BASE_DIR) + "/manual/" + key;
+  const bool dirOk = st.createDirectories(recoveryDir);
+  std::string recoveryPath = job->finalPath;
+  bool movedOut = false;
+  if (dirOk) {
+      const std::string candidate = uniqueRecoveryPath(st, recoveryDir, job->fileName);
+      if (st.rename(job->finalPath, candidate)) {
+          recoveryPath = candidate;
+          movedOut = true;
+      }
+  }
+
+  zipRecoveryPath_ = recoveryPath;
+  zipRecoveryExtractPath_ = activeZipDestination_;
+  zipRecoveryMayBeCorrupt_.store(looksLikeDamagedZipError(error));
+  zipRecoveryJobId_ = movedOut ? std::string() : activeJobId_;
+  zipRecoveryInfoPath_.clear();
+
+  if (movedOut) {
+      const std::string infoPath = recoveryPath + ".info.txt";
+      std::string info;
+      info += "PS Vita Alive Store - ZIP manual recovery\n\n";
+      info += "App: " + (activeDisplayTitle_.empty() ? pendingAppId_ : activeDisplayTitle_) + "\n";
+      info += "App ID: " + (pendingAppId_.empty() ? std::string("-") : pendingAppId_) + "\n";
+      info += "Title ID: " + (pendingTitleId_.empty() ? std::string("-") : pendingTitleId_) + "\n";
+      info += "Archive: " + job->fileName + "\n";
+      info += "Saved path: " + recoveryPath + "\n";
+      info += "Manual extraction target: " + activeZipDestination_ + "\n";
+      info += "Automatic extraction error: " + error + "\n";
+      if (zipRecoveryMayBeCorrupt_.load())
+          info += "Warning: archive may be damaged/incomplete; manual extraction may also fail.\n";
+      if (st.writeTextFile(infoPath, info)) zipRecoveryInfoPath_ = infoPath;
+
+      // The archive is now outside the job directory, so normal job
+      // metadata/temp cleanup cannot erase the preserved ZIP.
+      downloads_.cleanupCompletedJob(activeJobId_);
+      activeJobId_.clear();
+  } else {
+      diagnostics::log("[Installer] ZIP recovery rename failed; keeping completed job payload in place");
+  }
+
+  zipRecoveryAvailable_.store(true);
+  setStage("ZipRecovery");
+  setInstallPath(activeZipDestination_.c_str());
+  diagnostics::log(std::string("[Installer] ZIP recovery available path=") + recoveryPath +
+      " target=" + activeZipDestination_ +
+      " may_be_corrupt=" + (zipRecoveryMayBeCorrupt_.load() ? "yes" : "no"));
+        } else {
+  downloads_.cleanupCompletedJob(activeJobId_);
+  activeJobId_.clear();
+        }
         resultShownAtMs_.store(sceKernelGetSystemTimeWide() / 1000ULL);
     } else {
         setInstallPath(dispatcher_.lastInstallPath().c_str());

@@ -403,3 +403,20 @@ HINT_MASCOT=Aleatoria, desactivada, interna o del usuario
 INFO_MASCOT_1=Aleatoria elige una mascota cada vez que se abre el protector.
 INFO_MASCOT_2=Las mascotas internas y del usuario aparecen en una sola lista.
 INFO_MASCOT_3=Mascotas del usuario: ux0:data/psvitaalive/mascots/
+
+# ZIP extraction manual recovery
+ZIP_RECOVERY_TITLE=Falló la extracción ZIP
+ZIP_RECOVERY_DOWNLOADED_OK=El ZIP se descargó correctamente, pero PSVitaAlive no pudo extraerlo.
+ZIP_RECOVERY_SAVED_AT=Guardado en
+ZIP_RECOVERY_EXTRACT_TO=Destino de extracción manual
+ZIP_RECOVERY_WARNING=Puedes conservar el ZIP e intentar extraerlo manualmente.
+ZIP_RECOVERY_WARNING_CORRUPT=El ZIP puede estar dañado o incompleto. La extracción manual también podría fallar.
+ZIP_RECOVERY_KEEP=TRIÁNGULO  CONSERVAR ZIP
+ZIP_RECOVERY_DELETE=EQUIS  BORRAR ZIP
+ZIP_RECOVERY_REPORT=CUADRADO  REPORTAR
+ZIP_RECOVERY_FOOTER=Elige conservar o borrar. Reportar no cierra esta pantalla.
+ZIP_RECOVERY_KEPT=ZIP conservado para extracción manual
+ZIP_RECOVERY_DELETED=ZIP borrado
+ZIP_RECOVERY_KEEP_FAILED=No se pudo conservar el ZIP recuperado
+ZIP_RECOVERY_DELETE_FAILED=No se pudo borrar el ZIP recuperado
+ZIP_RECOVERY_CHOOSE_ACTION=Primero elige Conservar ZIP o Borrar ZIP.

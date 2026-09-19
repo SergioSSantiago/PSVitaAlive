@@ -36,6 +36,11 @@ struct InstallStatus {
     uint64_t resultAutoCloseRemainingMs = 0;
     /** True when a Plugin link finished and the user must reboot for taiHEN. */
     bool needsReboot = false;
+    /** True only when a fully downloaded data ZIP failed during extraction. */
+    bool zipRecoveryAvailable = false;
+    bool zipRecoveryMayBeCorrupt = false;
+    std::string zipRecoveryPath;
+    std::string zipRecoveryExtractPath;
 };
 
 /**
@@ -68,6 +73,8 @@ public:
     void cancel();
     /** User dismissed the success/error result panel (or UI timeout). */
     void acknowledgeResult();
+    /** Resolve a pending ZIP extraction recovery. keep=true preserves it; false deletes it. */
+    bool resolveZipRecovery(bool keep);
     InstallStatus status() const;
 
     bool busy() const;
@@ -81,7 +88,8 @@ public:
 
     /** Catalog identity for the install about to start (optional; used for receipts). */
     void setPendingCatalogMeta(const std::string& appId, const std::string& version,
-                               const std::string& versionDate = std::string(), int revision = 0);
+                               const std::string& versionDate = std::string(), int revision = 0,
+                               const std::string& titleId = std::string());
 
 private:
     HttpClient http_;
@@ -132,6 +140,7 @@ private:
     std::string pendingCatalogVersion_;
     std::string pendingVersionDate_;
     int pendingReleaseRevision_ = 0;
+    std::string pendingTitleId_;
     std::string activeBgdlUrl_;
     std::string activeBgdlTitle_;
     std::string activeBgdlLinkType_;
@@ -144,7 +153,16 @@ private:
     std::string activeLinkType_;
     std::string activePluginSection_;
     std::string activePluginLine_;
+    std::string activeDisplayTitle_;
     std::atomic<bool> needsReboot_{false};
+
+    // ZIP-only manual recovery. This is never populated for direct VPK/PKG/plugin jobs.
+    std::atomic<bool> zipRecoveryAvailable_{false};
+    std::atomic<bool> zipRecoveryMayBeCorrupt_{false};
+    std::string zipRecoveryPath_;
+    std::string zipRecoveryInfoPath_;
+    std::string zipRecoveryExtractPath_;
+    std::string zipRecoveryJobId_; // non-empty only if rename out of the job dir failed
 
     std::atomic<int> state_{static_cast<int>(InstallStatus::State::Idle)};
     std::atomic<uint64_t> current_{0};

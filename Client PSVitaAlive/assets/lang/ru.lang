@@ -388,3 +388,20 @@ PSP_SETUP_CANCEL=Cancel
 PSP_SETUP_NAV_HINT=L/R choose  X confirm  O cancel
 PSP_SETUP_LIVEAREA_BLOCKED=LiveArea needs NoPspEmuDrm (kern + user). Install it with AutoPlugin II, or choose Adrenaline instead.
 PROTECTION_PRESS_ANY_BUTTON=Нажмите любую кнопку, чтобы вернуться
+
+# ZIP extraction manual recovery
+ZIP_RECOVERY_TITLE=Ошибка распаковки ZIP
+ZIP_RECOVERY_DOWNLOADED_OK=ZIP загружен полностью, но PSVitaAlive не смог его распаковать.
+ZIP_RECOVERY_SAVED_AT=Сохранено в
+ZIP_RECOVERY_EXTRACT_TO=Папка для ручной распаковки
+ZIP_RECOVERY_WARNING=Можно сохранить ZIP и попробовать распаковать его вручную.
+ZIP_RECOVERY_WARNING_CORRUPT=ZIP может быть повреждён или неполон. Ручная распаковка тоже может завершиться ошибкой.
+ZIP_RECOVERY_KEEP=ТРЕУГОЛЬНИК  СОХРАНИТЬ ZIP
+ZIP_RECOVERY_DELETE=КРЕСТ  УДАЛИТЬ ZIP
+ZIP_RECOVERY_REPORT=КВАДРАТ  ОТЧЁТ
+ZIP_RECOVERY_FOOTER=Выберите Сохранить или Удалить. Отчёт не закрывает экран.
+ZIP_RECOVERY_KEPT=ZIP сохранён для ручной распаковки
+ZIP_RECOVERY_DELETED=ZIP удалён
+ZIP_RECOVERY_KEEP_FAILED=Не удалось сохранить восстановленный ZIP
+ZIP_RECOVERY_DELETE_FAILED=Не удалось удалить восстановленный ZIP
+ZIP_RECOVERY_CHOOSE_ACTION=Сначала выберите Сохранить ZIP или Удалить ZIP.

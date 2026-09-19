@@ -42,6 +42,7 @@ public:
     using InstallStatusFn = std::function<std::string()>;
     using InstallCancelFn = std::function<void()>;
     using InstallAcknowledgeFn = std::function<void()>;
+    using InstallZipRecoveryFn = std::function<bool(bool keep)>;
     using CatalogChangeFn = std::function<bool(CatalogType)>;
     using SearchRequestFn = std::function<void(const std::string&)>;
     using LinkActionFn = std::function<bool(const CatalogItem&, const CatalogLink&)>;
@@ -55,6 +56,7 @@ public:
     void setInstallCallbacks(InstallRequestFn requestInstall, InstallStatusFn statusText);
     void setInstallCancelCallback(InstallCancelFn callback);
     void setInstallAcknowledgeCallback(InstallAcknowledgeFn callback);
+    void setInstallZipRecoveryCallback(InstallZipRecoveryFn callback) { installZipRecovery_ = callback; }
     void setCatalogChangeCallback(CatalogChangeFn callback);
     void setSearchCallback(SearchRequestFn callback);
     /** Apply text returned asynchronously by the system IME. */
@@ -97,7 +99,11 @@ public:
                             const std::string& installPath = std::string(),
                             const std::string& titleId = std::string(),
                             uint64_t resultAutoCloseRemainingMs = 0,
-                            bool needsReboot = false);
+                            bool needsReboot = false,
+                            bool zipRecoveryAvailable = false,
+                            const std::string& zipRecoveryPath = std::string(),
+                            const std::string& zipRecoveryExtractPath = std::string(),
+                            bool zipRecoveryMayBeCorrupt = false);
 
 private:
     UiState state_;
@@ -114,6 +120,7 @@ private:
     InstallStatusFn installStatusText_;
     InstallCancelFn installCancel_;
     InstallAcknowledgeFn installAcknowledge_;
+    InstallZipRecoveryFn installZipRecovery_;
     CatalogChangeFn catalogChange_;
     SearchRequestFn searchRequest_;
     LinkActionFn linkAction_;
@@ -190,6 +197,10 @@ private:
     bool installLiveAreaOk_ = false;
     std::string installResultPath_;
     std::string installResultTitleId_;
+    bool installZipRecoveryAvailable_ = false;
+    bool installZipRecoveryMayBeCorrupt_ = false;
+    std::string installZipRecoveryPath_;
+    std::string installZipRecoveryExtractPath_;
 
     // Preserves the normal detail position while the temporary link-navigation
     // viewport is active.

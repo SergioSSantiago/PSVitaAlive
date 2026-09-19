@@ -428,3 +428,28 @@ Documentation:
 - [`NETWORK_TLS.md`](NETWORK_TLS.md)
 - [`../Client PSVitaAlive/README.md`](../Client%20PSVitaAlive/README.md)
 - [`../Client PSVitaAlive/source/installer/README.md`](../Client%20PSVitaAlive/source/installer/README.md)
+
+
+## Manual ZIP recovery after extraction failure
+
+This recovery path applies **only to a fully downloaded data ZIP that had an explicit extraction destination**. It is not used for direct VPK installs, PKG, plugins, cancelled downloads or incomplete `.part` files.
+
+If the HTTP download completed successfully but ZIP extraction fails — including a failure before the first entry can be extracted — the client moves the completed archive out of the transient download job when possible:
+
+```text
+ux0:data/psvitaalive/manual/<title_id-or-app_id>/<archive>.zip
+```
+
+An adjacent `<archive>.zip.info.txt` records the app/title identity, archive path, intended extraction destination and the automatic extraction error. Moving within `ux0:` avoids copying a multi-gigabyte archive.
+
+The failure panel requires an explicit choice:
+
+- **TRIANGLE — Keep ZIP:** leave the archive for manual extraction (for example with VitaShell or another tool).
+- **CROSS — Delete ZIP:** delete the recovered archive and recovery metadata so large failed jobs do not become storage trash.
+- **SQUARE — Report:** send the normal diagnostic report without closing the recovery decision screen.
+
+When the extractor reports CRC, truncation, EOCD/ZIP64/incomplete-data or size-integrity symptoms, the UI warns that the archive itself may be damaged and that manual extraction may also fail.
+
+A direct `.vpk` remains on the normal VPK/promoter failure path and is cleaned exactly as before. A ZIP treated as a VPK because it has no data-extraction destination is also excluded from this feature. Successful ZIP extraction still cleans its downloaded installation payload automatically.
+
+The client does **not** recursively delete files already written to the chosen extraction destination after a failed extraction: those destinations can contain pre-existing user data, so a blind rollback would be unsafe.

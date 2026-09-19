@@ -403,3 +403,20 @@ HINT_MASCOT=Random, Off, built-in or user mascot
 INFO_MASCOT_1=Random chooses a mascot each time the protection screen opens.
 INFO_MASCOT_2=Built-in and user mascots are combined in one list.
 INFO_MASCOT_3=User mascots: ux0:data/psvitaalive/mascots/
+
+# ZIP extraction manual recovery
+ZIP_RECOVERY_TITLE=ZIP extraction failed
+ZIP_RECOVERY_DOWNLOADED_OK=The ZIP downloaded correctly, but PSVitaAlive could not extract it.
+ZIP_RECOVERY_SAVED_AT=Saved at
+ZIP_RECOVERY_EXTRACT_TO=Manual extraction target
+ZIP_RECOVERY_WARNING=You can keep the ZIP and try extracting it manually.
+ZIP_RECOVERY_WARNING_CORRUPT=The ZIP may be damaged or incomplete. Manual extraction may also fail.
+ZIP_RECOVERY_KEEP=TRIANGLE  KEEP ZIP
+ZIP_RECOVERY_DELETE=CROSS  DELETE ZIP
+ZIP_RECOVERY_REPORT=SQUARE  REPORT
+ZIP_RECOVERY_FOOTER=Choose Keep or Delete. Report does not close this screen.
+ZIP_RECOVERY_KEPT=ZIP kept for manual extraction
+ZIP_RECOVERY_DELETED=ZIP deleted
+ZIP_RECOVERY_KEEP_FAILED=Could not keep the recovered ZIP
+ZIP_RECOVERY_DELETE_FAILED=Could not delete the recovered ZIP
+ZIP_RECOVERY_CHOOSE_ACTION=Choose Keep ZIP or Delete ZIP first.

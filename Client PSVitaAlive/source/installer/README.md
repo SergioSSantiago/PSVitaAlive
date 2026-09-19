@@ -281,3 +281,16 @@ Installer behaviour is driven by install method, PSP target/media, and catalog l
 `PluginDetector` reports both `repatch` (any of `repatch.skprx` / `repatch_4.skprx` / `repatch_ex.skprx` listed in config **and** file present) and `fdFix`.
 
 The essential-plugins prompt and Settings SYSTEM treat **RePatch as satisfying the FdFix requirement**: if RePatch is active, **fd_fix is not proposed for install** (avoids the known RePatch + FdFix conflict). kubridge and libshacccg are unchanged.
+
+
+## ZIP extraction manual recovery
+
+For data ZIPs, a successful network download and a failed extraction are treated as separate outcomes. If the outer payload is detected as `FileFormat::Zip`, an explicit `zipDestination` exists, and extraction later fails, `InstallController` preserves the completed ZIP instead of immediately reclaiming it.
+
+Preferred recovery path:
+
+```text
+ux0:data/psvitaalive/manual/<title_id-or-app_id>/<archive>.zip
+```
+
+The move stays on `ux0:` and therefore uses `StorageManager::rename` rather than duplicating a potentially multi-GB archive. The UI exposes Keep ZIP / Delete ZIP / Report actions and the intended manual extraction destination. Direct VPK, ZIP-as-VPK, PKG, plugin, cancelled and incomplete-download paths keep their previous cleanup semantics.

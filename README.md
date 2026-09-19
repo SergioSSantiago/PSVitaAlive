@@ -147,6 +147,7 @@ Native client (Title ID **PSVAS1178**). Users only need to **open the client**: 
 - **Image cache v3**: images download on demand; changing an image URL replaces only that resource; startup checks disk use and, only when cache is over **200 MiB**, removes oldest complete files down to about **40 MiB** with localized progress — see [docs/IMAGE_CACHE.md](docs/IMAGE_CACHE.md)
 - Downloads (MediaFire CDN resolution, Archive.org edge failover, GitHub, …) with retries on slow networks and SSL connect errors
 - Install: **VPK** (including nested `.vpk` inside a release ZIP), **ZIP** extract (`extract_path` or quick paths; large / >2 GB archives; EOCD/ZIP64 retries), licensed **Vita PKG** via system **BGDL**, **PSP/PS1 PKG** via BGDL (LiveArea) or **Adrenaline unpack** (Folder/ISO via pkg2zip-style pipeline)
+- **Manual ZIP recovery on extraction failure:** a fully downloaded data ZIP can be kept under `ux0:data/psvitaalive/manual/<title_id-or-app_id>/` for manual extraction, or explicitly deleted; direct VPK failures keep their existing cleanup path
 - **Plugin** catalog links: download to `extract_path`, append line to taiHEN `config.txt` (section-aware, append-only), reboot prompt
 - **Essential plugins** prompt after theme + News: detects missing **kubridge**, **fd_fix** (file + config line) and **libshacccg** (file only); one-tap install + reboot
 - **Plugin updates (planned):** remote manifest + size/hash checks — see [docs/PLUGIN_UPDATES.md](docs/PLUGIN_UPDATES.md) (not implemented yet)
