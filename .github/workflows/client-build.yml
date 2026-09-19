@@ -39,10 +39,26 @@ jobs:
             bash -lc '
               set -euo pipefail
               echo "VITASDK=$VITASDK"
-              echo "Toolchain package versions:"
-              pkg-config --modversion libcurl 2>/dev/null || true
-              pkg-config --modversion libzip 2>/dev/null || true
-              cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
+
+              # The full VitaSDK image intentionally carries every package, including
+              # both legacy `openssl` (1.0.2, required by the stock curl package) and
+              # `openssl-1.1.1`. The latter can overwrite libssl/libcrypto in the full
+              # image. Re-install the declared curl dependency so this build matches
+              # PSVitaAlive production instead of accidentally linking curl 8.x against
+              # the incompatible alternate OpenSSL package.
+              vdpm -f openssl
+
+              echo "Installed network package metadata:"
+              vdpm info openssl || true
+              vdpm info curl || true
+              vdpm info libzip || true
+
+              # GCC 15 libstdc++ uses pthread_once for guarded local statics. -pthread
+              # makes the driver place pthread support with its runtime libraries; the
+              # project also keeps its explicit pthread link for older VitaSDK setups.
+              cmake -S . -B build-ci \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_EXE_LINKER_FLAGS="-pthread"
               cmake --build build-ci --parallel 2
               test -s build-ci/PSVitaAlive.vpk || {
                 echo "Expected build-ci/PSVitaAlive.vpk was not produced" >&2
