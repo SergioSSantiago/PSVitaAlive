@@ -1,5 +1,58 @@
 [
   {
+    "id": "d2vita",
+    "title_id": "DTWO00001",
+    "name": "D2Vita",
+    "description": "Port of Diablo II: Lord of Destruction to the PlayStation Vita.",
+    "long_description": "Port of Diablo II: Lord of Destruction to the PlayStation Vita.\n\nTarget: 960×544 · classic renderer.\nStrategy: run the genuine Diablo II: LoD 1.14d Game.exe through a Win32/x86 runtime (PE loader + import bridge + an x86→ARMv7 dynarec derived from Box86), shimming only the OS layer — run Diablo, don't rewrite Diablo. An earlier clean-room D2MOO+Ghidra-decompilation approach was abandoned before it shipped anything.\nStatus: boots and plays solo (Rogue Encampment) on real Vita hardware; online play (realm → character → game → act) proven end-to-end on console, including against official Battle.net. See ROADMAP.md for what's done and what's open.",
+    "author_ids": [
+      "franckrst"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "puzzle",
+      "rpg",
+      "strategy"
+    ],
+    "version": "0.1.5",
+    "version_date": "2026-09-19",
+    "requirements": "- Provide your own from a legitimate copy of D2 / LoD",
+    "size": 7759462,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/D2Vita/d2vita%20v0.1.5.vpk",
+        "size": 7759462,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files English",
+        "url": "https://archive.org/download/D2Vita/Game%20Files%20English.zip",
+        "size": 2018634629,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files Spanish",
+        "url": "https://archive.org/download/D2Vita/Game%20Files%20Spanish.zip",
+        "size": 2190433321,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "GitHub",
+        "url": "https://github.com/Franckrst/D2Vita"
+      }
+    ],
+    "icon": "https://archive.org/download/D2Vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/D2Vita/shot0.png"
+    ]
+  },
+  {
     "id": "golden-balloon",
     "title_id": "GBLN00001",
     "name": "Golden Balloon",
@@ -7465,21 +7518,16 @@
     ],
     "category_id": "ports",
     "subcategory_ids": [
+      "adventure",
+      "platformer",
+      "puzzle",
       "other"
     ],
     "version": "v.1.2",
     "version_date": "2026-06-02",
     "requirements": "- libshacccg.suprx\n- Game Data Files: N64",
-    "size": 6740160,
+    "size": 6740247,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-ghostship-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-ghostship-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-ghostship-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-ghostship-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-ghostship-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-ghostship-vita/shot_05.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -7488,14 +7536,11 @@
         "recommended": true
       },
       {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/Ghostship/releases"
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/Ghostship/releases/tag/v.1.2"
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-ghostship-vita/Game%20Files.zip",
+        "size": 18454938,
+        "extract_path": "ux0:data/"
       },
       {
         "type": "Repository",
@@ -7503,11 +7548,19 @@
         "url": "https://github.com/Rinnegatamante/Ghostship"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-ghostship-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-ghostship-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-ghostship-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-ghostship-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-ghostship-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-ghostship-vita/shot_05.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "1387",
     "source_url": "https://github.com/Rinnegatamante/Ghostship",
     "release_page": "https://github.com/Rinnegatamante/Ghostship/releases",
-    "updated_at": "2026-08-13T15:34:48.344121+00:00"
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "minecraft-pe-demo",
@@ -8112,21 +8165,15 @@
     ],
     "category_id": "ports",
     "subcategory_ids": [
+      "arcade",
+      "racing",
       "other"
     ],
     "version": "v.1.1",
     "version_date": "2026-05-07",
     "requirements": "- libshacccg.suprx\n- Game Data Files: N64",
-    "size": 7722903,
+    "size": 7722762,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-spaghetti-kart-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-spaghetti-kart-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-spaghetti-kart-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-spaghetti-kart-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-spaghetti-kart-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-spaghetti-kart-vita/shot_05.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -8135,14 +8182,11 @@
         "recommended": true
       },
       {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/SpaghettiKart/releases"
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/SpaghettiKart/releases/tag/v.1.1"
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-spaghetti-kart-vita/Game%20Files.zip",
+        "size": 32191283,
+        "extract_path": "ux0:data/"
       },
       {
         "type": "Repository",
@@ -8150,11 +8194,19 @@
         "url": "https://github.com/Rinnegatamante/SpaghettiKart"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-spaghetti-kart-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-spaghetti-kart-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-spaghetti-kart-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-spaghetti-kart-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-spaghetti-kart-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-spaghetti-kart-vita/shot_05.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "1393",
     "source_url": "https://github.com/Rinnegatamante/SpaghettiKart",
     "release_page": "https://github.com/Rinnegatamante/SpaghettiKart/releases",
-    "updated_at": "2026-08-13T15:34:48.350465+00:00"
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "leo-s-fortune-vita",
@@ -8629,21 +8681,16 @@
     ],
     "category_id": "ports",
     "subcategory_ids": [
+      "action",
+      "simulation",
+      "strategy",
       "other"
     ],
     "version": "v.1.0",
     "version_date": "2026-04-24",
     "requirements": "- libshacccg.suprx\n- Game Data Files: N64",
-    "size": 6078362,
+    "size": 6078595,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-starship-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-starship-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-starship-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-starship-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-starship-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-starship-vita/shot_05.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -8652,14 +8699,11 @@
         "recommended": true
       },
       {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/Starship/releases"
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/Starship/releases/tag/v.1.0"
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-starship-vita/Game%20Files.zip",
+        "size": 14575206,
+        "extract_path": "ux0:data/"
       },
       {
         "type": "Repository",
@@ -8667,11 +8711,19 @@
         "url": "https://github.com/Rinnegatamante/Starship"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-starship-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-starship-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-starship-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-starship-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-starship-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-starship-vita/shot_05.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "1388",
     "source_url": "https://github.com/Rinnegatamante/Starship",
     "release_page": "https://github.com/Rinnegatamante/Starship/releases",
-    "updated_at": "2026-08-13T15:34:48.354346+00:00"
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "star-warfare-alien-invasion",
