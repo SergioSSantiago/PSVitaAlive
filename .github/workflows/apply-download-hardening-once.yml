@@ -1,0 +1,68 @@
+name: Apply Download Hardening Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/apply-download-hardening-once.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: psvitaalive-download-hardening-once
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate patch script
+        run: python -m py_compile scripts/apply_download_stack_hardening.py
+
+      - name: Apply download and ZIP hardening
+        run: python scripts/apply_download_stack_hardening.py
+
+      - name: Static sanity checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          grep -q "discarding non-payload response body" "Client PSVitaAlive/source/network/http_client.cpp"
+          grep -q "kMetadataSaveStep" "Client PSVitaAlive/source/network/download_manager.cpp"
+          grep -q "MediaFire re-resolved resume_offset" "Client PSVitaAlive/source/network/download_manager.cpp"
+          grep -q "zip_fclose failed entry" "Client PSVitaAlive/source/archive/zip_extractor.cpp"
+          grep -q "Download integrity hardening" docs/NETWORK_TLS.md
+
+      - name: Commit hardened sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- \
+            "Client PSVitaAlive/source/network/http_client.cpp" \
+            "Client PSVitaAlive/source/network/download_manager.cpp" \
+            "Client PSVitaAlive/source/archive/zip_extractor.cpp" \
+            docs/NETWORK_TLS.md
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git commit -m "Harden long downloads and ZIP extraction"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            if git rebase --autostash origin/main && git push origin HEAD:main; then
+              echo "Hardening commit pushed on attempt $attempt"
+              exit 0
+            fi
+            git rebase --abort || true
+            sleep 3
+          done
+          echo "::error::failed to push hardening commit"
+          exit 1
