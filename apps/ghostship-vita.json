@@ -9,21 +9,16 @@
   ],
   "category_id": "ports",
   "subcategory_ids": [
+    "adventure",
+    "platformer",
+    "puzzle",
     "other"
   ],
   "version": "v.1.2",
   "version_date": "2026-06-02",
   "requirements": "- libshacccg.suprx\n- Game Data Files: N64",
-  "size": 6740160,
+  "size": 6740247,
   "status": "Legacy",
-  "icon": "https://archive.org/download/psvitaalive-ghostship-vita/icon0.png",
-  "screenshots": [
-    "https://archive.org/download/psvitaalive-ghostship-vita/shot_01.png",
-    "https://archive.org/download/psvitaalive-ghostship-vita/shot_02.png",
-    "https://archive.org/download/psvitaalive-ghostship-vita/shot_03.png",
-    "https://archive.org/download/psvitaalive-ghostship-vita/shot_04.png",
-    "https://archive.org/download/psvitaalive-ghostship-vita/shot_05.png"
-  ],
   "links": [
     {
       "type": "Download",
@@ -32,14 +27,11 @@
       "recommended": true
     },
     {
-      "type": "Official Website",
-      "name": "Release Page",
-      "url": "https://github.com/Rinnegatamante/Ghostship/releases"
-    },
-    {
-      "type": "Official Website",
-      "name": "Release Page",
-      "url": "https://github.com/Rinnegatamante/Ghostship/releases/tag/v.1.2"
+      "type": "Game Files",
+      "name": "Game Files",
+      "url": "https://archive.org/download/psvitaalive-ghostship-vita/Game%20Files.zip",
+      "size": 18454938,
+      "extract_path": "ux0:data/"
     },
     {
       "type": "Repository",
@@ -47,9 +39,17 @@
       "url": "https://github.com/Rinnegatamante/Ghostship"
     }
   ],
+  "icon": "https://archive.org/download/psvitaalive-ghostship-vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/psvitaalive-ghostship-vita/shot_01.png",
+    "https://archive.org/download/psvitaalive-ghostship-vita/shot_02.png",
+    "https://archive.org/download/psvitaalive-ghostship-vita/shot_03.png",
+    "https://archive.org/download/psvitaalive-ghostship-vita/shot_04.png",
+    "https://archive.org/download/psvitaalive-ghostship-vita/shot_05.png"
+  ],
   "source_name": "VitaHomebrewDB",
   "source_id": "1387",
   "source_url": "https://github.com/Rinnegatamante/Ghostship",
   "release_page": "https://github.com/Rinnegatamante/Ghostship/releases",
-  "updated_at": "2026-08-13T15:34:48.344121+00:00"
+  "updated_at": "2026-08-13T15:34"
 }
