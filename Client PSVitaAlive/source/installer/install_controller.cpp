@@ -1175,8 +1175,13 @@ int InstallController::workerMain() {
         if (!cancelled && attemptsUsed > 1) {
             error = "Failed after " + std::to_string(attemptsUsed) + " attempts: " + error;
         }
-        setStage(cancelled ? "Cancelled" : "Error");
-        setState(cancelled ? InstallStatus::State::Cancelled : InstallStatus::State::Failed, error.c_str());
+        // Keep the UI in Installing while a recoverable ZIP is moved out of
+        // the transient job. Publish Failed only after recovery metadata is ready.
+        setStage(cancelled ? "Cancelled" : (zipRecoveryCandidate ? "RecoveringZip" : "Error"));
+        if (cancelled || !zipRecoveryCandidate)
+            setState(cancelled ? InstallStatus::State::Cancelled : InstallStatus::State::Failed, error.c_str());
+        else
+            setMessage(error.c_str());
         liveAreaOk_.store(false);
         setInstallPath(dispatcher_.lastInstallPath().c_str());
         setTitleId(dispatcher_.lastTitleId().c_str());
@@ -1233,8 +1238,13 @@ int InstallController::workerMain() {
   }
 
   zipRecoveryAvailable_.store(true);
+
   setStage("ZipRecovery");
+
   setInstallPath(activeZipDestination_.c_str());
+
+  setState(InstallStatus::State::Failed, error.c_str());
+
   diagnostics::log(std::string("[Installer] ZIP recovery available path=") + recoveryPath +
       " target=" + activeZipDestination_ +
       " may_be_corrupt=" + (zipRecoveryMayBeCorrupt_.load() ? "yes" : "no"));
