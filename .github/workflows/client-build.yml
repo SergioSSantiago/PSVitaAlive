@@ -39,6 +39,9 @@ jobs:
             bash -lc '
               set -euo pipefail
               echo "VITASDK=$VITASDK"
+              echo "Toolchain package versions:"
+              pkg-config --modversion libcurl 2>/dev/null || true
+              pkg-config --modversion libzip 2>/dev/null || true
               cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release
               cmake --build build-ci --parallel 2
               test -s build-ci/PSVitaAlive.vpk || {
