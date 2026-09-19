@@ -98,6 +98,51 @@
     ]
   },
   {
+    "id": "powerpuff-girls-mojo-madness",
+    "title_id": "PPGMV2000",
+    "name": "Powerpuff Girls Mojo Madness",
+    "description": "A port of The Powerpuff Girls: Mojo Madness Android for PS Vita.",
+    "long_description": "A port of The Powerpuff Girls: Mojo Madness Android for PS Vita.",
+    "author_ids": [
+      "spliffcurrybeats"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "arcade",
+      "platformer"
+    ],
+    "version": "0.1.1",
+    "version_date": "2026-09-16",
+    "requirements": "- kubridge.skprx installed\n- libshacccg.suprx at ur0:data/libshacccg.suprx or ur0:data/external/libshacccg.suprx",
+    "size": 2306867,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/the-powerpuff-girls-mojo-madness-vita/PowerpuffVita_v0.1.1.vpk",
+        "size": 2306867,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/the-powerpuff-girls-mojo-madness-vita/Game%20Files.zip",
+        "size": 33135002,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "GitLab",
+        "url": "https://gitlab.com/sexcurrybeats/powerpuff-mojo-madness-vita"
+      }
+    ],
+    "icon": "https://archive.org/download/the-powerpuff-girls-mojo-madness-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/the-powerpuff-girls-mojo-madness-vita/shot0.png"
+    ]
+  },
+  {
     "id": "shadow-guardian",
     "title_id": "PSVSGHD01",
     "name": "Shadow Guardian",
@@ -581,6 +626,46 @@
     ]
   },
   {
+    "id": "gravity-guy",
+    "title_id": "GRVG00001",
+    "name": "Gravity Guy",
+    "description": "Gravity Guy Ps Vita Port",
+    "long_description": "Gravity Guy Ps Vita Port",
+    "author_ids": [
+      "elpinguinoxd"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "arcade",
+      "platformer"
+    ],
+    "version": "1.1",
+    "version_date": "2026-09-08",
+    "requirements": "- no data",
+    "size": 4194304,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/gravity-guy-ps-vita/gravityguy%20v1.1.vpk",
+        "size": 4194304,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/gravity-guy-ps-vita/Game%20Files.zip",
+        "size": 46242202,
+        "extract_path": "ux0:data/"
+      }
+    ],
+    "icon": "https://archive.org/download/gravity-guy-ps-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/gravity-guy-ps-vita/Shot0.png"
+    ]
+  },
+  {
     "id": "peelgallery",
     "title_id": "peelgallery",
     "name": "PeelGallery",
@@ -609,46 +694,6 @@
     "icon": "https://github.com/AlecksPV1/PeelGallery/blob/main/LogoApp.png?raw=true",
     "screenshots": [
       "https://github.com/AlecksPV1/PeelGallery/blob/main/FondoApp.png?raw=true"
-    ]
-  },
-  {
-    "id": "gravity-guy",
-    "title_id": "GRVG00001",
-    "name": "Gravity Guy",
-    "description": "Gravity Guy Ps Vita Port",
-    "long_description": "Gravity Guy Ps Vita Port",
-    "author_ids": [
-      "elpinguinoxd"
-    ],
-    "category_id": "ports",
-    "subcategory_ids": [
-      "arcade",
-      "platformer"
-    ],
-    "version": "1.0",
-    "version_date": "2026-09-06",
-    "requirements": "- no data",
-    "size": 4194304,
-    "status": "Verified",
-    "links": [
-      {
-        "type": "Download",
-        "name": "VPK",
-        "url": "https://archive.org/download/gravity-guy-ps-vita/gravityguy.vpk",
-        "size": 4194304,
-        "recommended": true
-      },
-      {
-        "type": "Game Files",
-        "name": "Game Files",
-        "url": "https://archive.org/download/gravity-guy-ps-vita/Game%20Files.zip",
-        "size": 46242202,
-        "extract_path": "ux0:data/"
-      }
-    ],
-    "icon": "https://archive.org/download/gravity-guy-ps-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/gravity-guy-ps-vita/Shot0.png"
     ]
   },
   {
@@ -1093,7 +1138,7 @@
       {
         "type": "Game Files",
         "name": "Game Files",
-        "url": "https://archive.org/download/bombsquad-vita/Game%20Files.zip",
+        "url": "https://archive.org/download/bombsquad-vita/Game%20Files%20Fix.zip",
         "size": 151728947,
         "extract_path": "ux0:data/"
       },
