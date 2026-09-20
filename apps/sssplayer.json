@@ -21,7 +21,9 @@
   "size": 49540066,
   "status": "Verified",
   "icon": "https://raw.githubusercontent.com/SergioSSantiago/SSSPlayer/main/assets/icons/icon0.png",
-  "screenshots": [],
+  "screenshots": [
+    "https://raw.githubusercontent.com/SergioSSantiago/SSSPlayer/main/assets/icons/icon0.png"
+  ],
   "links": [
     {
       "type": "Download",
