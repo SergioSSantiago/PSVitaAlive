@@ -1,5 +1,51 @@
 [
   {
+    "id": "ultimate-spiderman-total-mayhem",
+    "title_id": "SPIDERMAN",
+    "name": "Ultimate Spiderman: Total Mayhem",
+    "description": "Ultimate Spiderman: Total Mayhem Ps Vita Port",
+    "long_description": "Ultimate Spiderman: Total Mayhem Ps Vita Port",
+    "author_ids": [
+      "rinnegatamante"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "arcade",
+      "platformer"
+    ],
+    "version": "1.2",
+    "version_date": "2026-09-21",
+    "requirements": "- no data",
+    "size": 3460301,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/ultimate-spiderman-total-mayhem-ps-vita/Spiderman%20v1.2.vpk",
+        "size": 3460301,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/ultimate-spiderman-total-mayhem-ps-vita/Game%20Files.zip",
+        "size": 170813030,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "Github",
+        "url": "https://github.com/Rinnegatamante/spiderman_vita"
+      }
+    ],
+    "icon": "https://archive.org/download/ultimate-spiderman-total-mayhem-ps-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/ultimate-spiderman-total-mayhem-ps-vita/shot0.png",
+      "https://archive.org/download/ultimate-spiderman-total-mayhem-ps-vita/shot1.png"
+    ]
+  },
+  {
     "id": "jk2vita",
     "title_id": "JK2VITA01",
     "name": "JK2VITA",
@@ -7343,12 +7389,8 @@
     "version": "v.1.0",
     "version_date": "2026-06-07",
     "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
-    "size": 1910439,
+    "size": 1910505,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-super-hexagon-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-super-hexagon-vita/shot_01.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -7357,16 +7399,26 @@
         "recommended": true
       },
       {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-super-hexagon-vita/Game%20Files.zip",
+        "size": 152567808,
+        "extract_path": "ux0:data/"
+      },
+      {
         "type": "Repository",
         "name": "Repositorio",
         "url": "https://github.com/mcallbosco/super-hexagon-vita"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-super-hexagon-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-super-hexagon-vita/shot_01.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "1408",
     "source_url": "https://github.com/mcallbosco/super-hexagon-vita",
-    "release_page": "",
-    "updated_at": "2026-08-13T15:34:48.341421+00:00"
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "ds8-drumstream",
@@ -7405,53 +7457,6 @@
     "updated_at": "2026-08-13T15:34:48.342683+00:00"
   },
   {
-    "id": "biohazard4-vita",
-    "title_id": "BIO4AF000",
-    "name": "BIOHAZARD4 Vita",
-    "description": "Port of Resident Evil 4 Mobile for PSVita.",
-    "long_description": "Port of Resident Evil 4 Mobile for PSVita.\nResident Evil 4 Mobile is an heavily downgraded demake of Resident Evil 4 for Android devices.\n\nNote: this download is hosted on an external server, not GitHub, and may stop working if that server goes down or changes without the catalog knowing.",
-    "author_ids": [
-      "yizhigai",
-      "spritelisen",
-      "kaaass"
-    ],
-    "category_id": "ports",
-    "subcategory_ids": [
-      "other"
-    ],
-    "version": "v.1.1",
-    "version_date": "2026-06-06",
-    "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
-    "size": 3233206,
-    "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-biohazard4-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-biohazard4-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-biohazard4-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-biohazard4-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-biohazard4-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-biohazard4-vita/shot_05.png"
-    ],
-    "links": [
-      {
-        "type": "Download",
-        "name": "VPK",
-        "url": "https://archive.org/download/psvitaalive-biohazard4-vita/biohazard4-vita.vpk",
-        "recommended": true
-      },
-      {
-        "type": "Repository",
-        "name": "Repositorio",
-        "url": "https://gitee.com/Moqi01/bio4"
-      }
-    ],
-    "source_name": "VitaHomebrewDB",
-    "source_id": "1402",
-    "source_url": "https://gitee.com/Moqi01/bio4",
-    "release_page": "",
-    "updated_at": "2026-08-13T15:34:48.342318+00:00"
-  },
-  {
     "id": "animal-crossing-vita",
     "title_id": "ACGC00001",
     "name": "Animal Crossing Vita",
@@ -7467,16 +7472,8 @@
     "version": "v.0.4.1",
     "version_date": "2026-06-06",
     "requirements": "- libshacccg.suprx\n- Game Data Files: Gamecube",
-    "size": 6742478,
+    "size": 6742344,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-animal-crossing-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-animal-crossing-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-animal-crossing-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-animal-crossing-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-animal-crossing-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-animal-crossing-vita/shot_05.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -7485,14 +7482,11 @@
         "recommended": true
       },
       {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Brendonm17/ACGC-Vita-Port/releases"
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Brendonm17/ACGC-Vita-Port/releases/tag/v0.4.1"
+        "type": "Game Files",
+        "name": "Game Files USA",
+        "url": "https://archive.org/download/animal-crossing-usa/Animal%20Crossing%20%28USA%29.iso",
+        "size": 27577549,
+        "extract_path": "ux0:data/AnimalCrossing/rom/"
       },
       {
         "type": "Repository",
@@ -7500,11 +7494,74 @@
         "url": "https://github.com/Brendonm17/ACGC-Vita-Port"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-animal-crossing-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-animal-crossing-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-animal-crossing-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-animal-crossing-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-animal-crossing-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-animal-crossing-vita/shot_05.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "1381",
     "source_url": "https://github.com/Brendonm17/ACGC-Vita-Port",
     "release_page": "https://github.com/Brendonm17/ACGC-Vita-Port/releases",
-    "updated_at": "2026-08-13T15:34:48.341665+00:00"
+    "updated_at": "2026-08-13T15:34"
+  },
+  {
+    "id": "biohazard4-vita",
+    "title_id": "BIO4AF000",
+    "name": "BIOHAZARD4 Vita",
+    "description": "Port of Resident Evil 4 Mobile for PSVita.",
+    "long_description": "Port of Resident Evil 4 Mobile for PSVita.\nResident Evil 4 Mobile is an heavily downgraded demake of Resident Evil 4 for Android devices.\n\nNote: this download is hosted on an external server, not GitHub, and may stop working if that server goes down or changes without the catalog knowing.",
+    "author_ids": [
+      "kaaass",
+      "spritelisen",
+      "yizhigai"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "fps",
+      "shooter",
+      "other"
+    ],
+    "version": "v.1.1",
+    "version_date": "2026-06-06",
+    "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
+    "size": 3232760,
+    "status": "Legacy",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/psvitaalive-biohazard4-vita/biohazard4-vita.vpk",
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-biohazard4-vita/Game%20Files.zip",
+        "size": 87660954,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "Repositorio",
+        "url": "https://gitee.com/Moqi01/bio4"
+      }
+    ],
+    "icon": "https://archive.org/download/psvitaalive-biohazard4-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-biohazard4-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-biohazard4-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-biohazard4-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-biohazard4-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-biohazard4-vita/shot_05.png"
+    ],
+    "source_name": "VitaHomebrewDB",
+    "source_id": "1402",
+    "source_url": "https://gitee.com/Moqi01/bio4",
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "vita-virtualkeyboard",
@@ -9088,27 +9145,21 @@
     "description": "Port of Devil May Cry 4 Refrain for PSVita.",
     "long_description": "Port of Devil May Cry 4 Refrain for PSVita.\nDevil May Cry 4 Refrain is a mobile spinoff in the universe of Devil May Cry franchise.\n\nNote: this download is hosted on an external server, not GitHub, and may stop working if that server goes down or changes without the catalog knowing.",
     "author_ids": [
-      "yizhigai",
+      "kaaass",
       "spritelisen",
-      "kaaass"
+      "yizhigai"
     ],
     "category_id": "ports",
     "subcategory_ids": [
+      "action",
+      "strategy",
       "other"
     ],
     "version": "BETA",
     "version_date": "2026-03-31",
     "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
-    "size": 1258697,
+    "size": 1258291,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_05.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -9117,16 +9168,30 @@
         "recommended": true
       },
       {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/Game%20Files.zip",
+        "size": 321388544,
+        "extract_path": "ux0:data/"
+      },
+      {
         "type": "Repository",
         "name": "Repositorio",
         "url": "https://gitee.com/Moqi01/acrodea_runtime"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_05.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "1377",
     "source_url": "https://gitee.com/Moqi01/acrodea_runtime",
-    "release_page": "",
-    "updated_at": "2026-08-13T15:34:48.357122+00:00"
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "vitawave",
@@ -20433,21 +20498,15 @@
     ],
     "category_id": "ports",
     "subcategory_ids": [
+      "action",
+      "racing",
       "other"
     ],
     "version": "v.1.0",
     "version_date": "2024-01-05",
     "requirements": "- Game Data Files: Android\n- kubridge.skprx",
-    "size": 1728466,
+    "size": 1728053,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-nfshp-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-nfshp-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-nfshp-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-nfshp-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-nfshp-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-nfshp-vita/shot_05.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -20456,14 +20515,11 @@
         "recommended": true
       },
       {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Electry/nfshp_vita/releases"
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Electry/nfshp_vita/releases/tag/v1.0"
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-nfshp-vita/Game%20Files.zip",
+        "size": 445120512,
+        "extract_path": "ux0:data/"
       },
       {
         "type": "Repository",
@@ -20471,11 +20527,19 @@
         "url": "https://github.com/Electry/nfshp_vita"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-nfshp-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-nfshp-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-nfshp-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-nfshp-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-nfshp-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-nfshp-vita/shot_05.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "1173",
     "source_url": "https://github.com/Electry/nfshp_vita",
     "release_page": "https://github.com/Electry/nfshp_vita/releases",
-    "updated_at": "2026-08-13T15:34:48.454552+00:00"
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "vita-surviving",
