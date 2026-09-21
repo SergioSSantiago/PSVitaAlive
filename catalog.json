@@ -202,6 +202,52 @@
     "release_page": "https://github.com/SergioSSantiago/SSSPlayer/releases"
   },
   {
+    "id": "the-impossible-game",
+    "title_id": "PSVTIG001",
+    "name": "The Impossible Game",
+    "description": "Android to PS Vita port of The Impossible Game originally published by Fluke Games (FlukeDude)",
+    "long_description": "The Impossible Game is FlukeDude's rhythm-platformer, originally released for Android as 05133-the-impossible-1.5.2.apk (package com.flukedude.impossiblegame). This port runs the compiled native library (libimpossible.so — a small, self-contained proprietary engine that handles cube physics, collisions, procedural level generation, and rendering) directly on the PS Vita's ARM Cortex-A9 processor, using a dynamic loader (soloader) and an Android environment emulation layer (FalsoJNI). The UI and audio layers, which were Java on Android, have been fully reimplemented natively in C (menu.c, audio.c, texture.c, save.c) for zero-latency input and native performance.",
+    "author_ids": [
+      "metalsyntax"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "platformer",
+      "puzzle",
+      "strategy"
+    ],
+    "version": "1.1.0",
+    "version_date": "2026-09-20",
+    "requirements": "- kubridge installed as a kernel plugin (ur0:tai/config.txt under *KERNEL).\n- libshacccg.suprx installed in ur0:data/ (required by vitaGL's fixed-function shader compiler).",
+    "size": 800461,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/the-impossible-game-ps-vita-port/theimpossiblegame%20v1.1.0.vpk",
+        "size": 800461,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/the-impossible-game-ps-vita-port/Game%20Files.zip",
+        "size": 1992294,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "Github",
+        "url": "https://github.com/MetalSyntax/The-Impossible-Game-vita"
+      }
+    ],
+    "icon": "https://archive.org/download/the-impossible-game-ps-vita-port/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/the-impossible-game-ps-vita-port/shot0.png"
+    ]
+  },
+  {
     "id": "asphalt-5",
     "title_id": "ASPHALT05",
     "name": "Asphalt 5",
@@ -381,52 +427,6 @@
     "icon": "https://archive.org/download/the-powerpuff-girls-mojo-madness-vita/icon0.png",
     "screenshots": [
       "https://archive.org/download/the-powerpuff-girls-mojo-madness-vita/shot0.png"
-    ]
-  },
-  {
-    "id": "the-impossible-game",
-    "title_id": "PSVTIG001",
-    "name": "The Impossible Game",
-    "description": "Android to PS Vita port of The Impossible Game originally published by Fluke Games (FlukeDude)",
-    "long_description": "The Impossible Game is FlukeDude's rhythm-platformer, originally released for Android as 05133-the-impossible-1.5.2.apk (package com.flukedude.impossiblegame). This port runs the compiled native library (libimpossible.so — a small, self-contained proprietary engine that handles cube physics, collisions, procedural level generation, and rendering) directly on the PS Vita's ARM Cortex-A9 processor, using a dynamic loader (soloader) and an Android environment emulation layer (FalsoJNI). The UI and audio layers, which were Java on Android, have been fully reimplemented natively in C (menu.c, audio.c, texture.c, save.c) for zero-latency input and native performance.",
-    "author_ids": [
-      "metalsyntax"
-    ],
-    "category_id": "ports",
-    "subcategory_ids": [
-      "platformer",
-      "puzzle",
-      "strategy"
-    ],
-    "version": "1.0.0",
-    "version_date": "2026-09-16",
-    "requirements": "- kubridge installed as a kernel plugin (ur0:tai/config.txt under *KERNEL).\n- libshacccg.suprx installed in ur0:data/ (required by vitaGL's fixed-function shader compiler).",
-    "size": 800461,
-    "status": "Verified",
-    "links": [
-      {
-        "type": "Download",
-        "name": "VPK",
-        "url": "https://archive.org/download/the-impossible-game-ps-vita-port/theimpossiblegame%20v1.0.0.vpk",
-        "size": 800461,
-        "recommended": true
-      },
-      {
-        "type": "Game Files",
-        "name": "Game Files",
-        "url": "https://archive.org/download/the-impossible-game-ps-vita-port/Game%20Files.zip",
-        "size": 1992294,
-        "extract_path": "ux0:data/"
-      },
-      {
-        "type": "Repository",
-        "name": "Github",
-        "url": "https://github.com/MetalSyntax/The-Impossible-Game-vita"
-      }
-    ],
-    "icon": "https://archive.org/download/the-impossible-game-ps-vita-port/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/the-impossible-game-ps-vita-port/shot0.png"
     ]
   },
   {
@@ -17472,7 +17472,7 @@
         "name": "Game Files",
         "url": "https://archive.org/download/psvitaalive-pureya-vita/Game%20Files.zip",
         "size": 63229133,
-        "extract_path": "ux0:data/"
+        "extract_path": "ux0:app/PRYA22322/"
       },
       {
         "type": "Official Website",
@@ -19838,21 +19838,18 @@
     ],
     "category_id": "ports",
     "subcategory_ids": [
+      "action",
+      "adventure",
+      "platformer",
+      "shooter",
+      "strategy",
       "other"
     ],
     "version": "v.1.2",
     "version_date": "2024-02-14",
     "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- fd_fix.skprx OR repatch_ex.skprx\n- Game Data Files: Android",
-    "size": 9305524,
+    "size": 9305063,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_01.png",
-      "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_02.png",
-      "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_03.png",
-      "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_04.png",
-      "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_05.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -19861,14 +19858,11 @@
         "recommended": true
       },
       {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/raider-vita/releases"
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/raider-vita/releases/tag/v.1.2"
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/Game%20Files.zip",
+        "size": 735156634,
+        "extract_path": "ux0:data/"
       },
       {
         "type": "Repository",
@@ -19876,11 +19870,19 @@
         "url": "https://github.com/Rinnegatamante/raider-vita"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_01.png",
+      "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_02.png",
+      "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_03.png",
+      "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_04.png",
+      "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_05.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "845",
     "source_url": "https://github.com/Rinnegatamante/raider-vita",
     "release_page": "https://github.com/Rinnegatamante/raider-vita/releases",
-    "updated_at": "2026-08-13T15:34:48.448810+00:00"
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "freeways-vita",
