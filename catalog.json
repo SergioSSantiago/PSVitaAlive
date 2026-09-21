@@ -679,6 +679,56 @@
     ]
   },
   {
+    "id": "pacman-ce-dx-vita",
+    "title_id": "PCMN00001",
+    "name": "Pacman CE DX Vita",
+    "description": "Port of Pacman CE DX for PSVita.",
+    "long_description": "A homebrew .so-loader port of PAC-MAN Championship Edition DX (Android) to the PlayStation Vita.\n\nNote: this download is hosted on an external server, not GitHub, and may stop working if that server goes down or changes without the catalog knowing.",
+    "author_ids": [
+      "mcallbosco"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "arcade",
+      "puzzle",
+      "strategy"
+    ],
+    "version": "3.0",
+    "version_date": "2026-09-12",
+    "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
+    "size": 2202010,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/pac-man-ce-dx-ps-vita/pacmancedx.vpk",
+        "size": 2202010,
+        "recommended": true
+      },
+      {
+        "type": "Download",
+        "name": "Game Files",
+        "url": "https://archive.org/download/pac-man-ce-dx-ps-vita/Game%20Files.zip",
+        "size": 217055232,
+        "recommended": false
+      },
+      {
+        "type": "Repository",
+        "name": "Repositorio",
+        "url": "https://github.com/mcallbosco/pacman-cedx-vita"
+      }
+    ],
+    "icon": "https://archive.org/download/pac-man-ce-dx-ps-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/pac-man-ce-dx-ps-vita/shot0.jpg"
+    ],
+    "source_name": "VitaHomebrewDB",
+    "source_id": "1409",
+    "source_url": "https://github.com/mcallbosco/pacman-cedx-vita",
+    "updated_at": "2026-08-13T15:34"
+  },
+  {
     "id": "azahar-emulator-alpha",
     "title_id": "AZAHARPSV",
     "name": "Azahar Emulator (ALPHA)",
@@ -7234,21 +7284,15 @@
     ],
     "category_id": "ports",
     "subcategory_ids": [
+      "rpg",
+      "strategy",
       "other"
     ],
     "version": "v.1.2.3",
     "version_date": "2026-06-11",
     "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- fd_fix.skprx OR repatch_ex.skprx\n- Game Data Files: Android",
-    "size": 18180699,
+    "size": 18180211,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-ff3-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-ff3-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-ff3-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-ff3-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-ff3-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-ff3-vita/shot_05.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -7257,14 +7301,11 @@
         "recommended": true
       },
       {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/frangarcj/ff3_vita/releases"
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/frangarcj/ff3_vita/releases/tag/v1.2.3"
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-ff3-vita/Game%20Files.zip",
+        "size": 356096410,
+        "extract_path": "ux0:data/"
       },
       {
         "type": "Repository",
@@ -7272,52 +7313,19 @@
         "url": "https://github.com/frangarcj/ff3_vita"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-ff3-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-ff3-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-ff3-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-ff3-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-ff3-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-ff3-vita/shot_05.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "725",
     "source_url": "https://github.com/frangarcj/ff3_vita",
     "release_page": "https://github.com/frangarcj/ff3_vita/releases",
-    "updated_at": "2026-08-13T15:34:48.341263+00:00"
-  },
-  {
-    "id": "pacman-ce-dx-vita",
-    "title_id": "PCMN00001",
-    "name": "Pacman CE DX Vita",
-    "description": "Port of Pacman CE DX for PSVita.",
-    "long_description": "A homebrew .so-loader port of PAC-MAN Championship Edition DX (Android) to the PlayStation Vita.\n\nNote: this download is hosted on an external server, not GitHub, and may stop working if that server goes down or changes without the catalog knowing.",
-    "author_ids": [
-      "mcallbosco"
-    ],
-    "category_id": "ports",
-    "subcategory_ids": [
-      "other"
-    ],
-    "version": "v.1.0",
-    "version_date": "2026-06-07",
-    "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
-    "size": 1953422,
-    "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-pacman-ce-dx-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-pacman-ce-dx-vita/shot_01.png"
-    ],
-    "links": [
-      {
-        "type": "Download",
-        "name": "VPK",
-        "url": "https://archive.org/download/psvitaalive-pacman-ce-dx-vita/pacman-ce-dx-vita.vpk",
-        "recommended": true
-      },
-      {
-        "type": "Repository",
-        "name": "Repositorio",
-        "url": "https://github.com/mcallbosco/pacman-cedx-vita"
-      }
-    ],
-    "source_name": "VitaHomebrewDB",
-    "source_id": "1409",
-    "source_url": "https://github.com/mcallbosco/pacman-cedx-vita",
-    "release_page": "",
-    "updated_at": "2026-08-13T15:34:48.341543+00:00"
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "super-hexagon-vita",
@@ -19313,16 +19321,8 @@
     "version": "v.1.2",
     "version_date": "2024-03-27",
     "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
-    "size": 16532520,
+    "size": 16532898,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-ffd-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-ffd-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-ffd-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-ffd-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-ffd-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-ffd-vita/shot_05.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -19331,14 +19331,11 @@
         "recommended": true
       },
       {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/ffd-vita/releases"
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/ffd-vita/releases/tag/v.1.2"
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-ffd-vita/Game%20Files.zip",
+        "size": 212022067,
+        "extract_path": "ux0:data/"
       },
       {
         "type": "Repository",
@@ -19346,11 +19343,19 @@
         "url": "https://github.com/Rinnegatamante/ffd-vita"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-ffd-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-ffd-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-ffd-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-ffd-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-ffd-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-ffd-vita/shot_05.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "1188",
     "source_url": "https://github.com/Rinnegatamante/ffd-vita",
     "release_page": "https://github.com/Rinnegatamante/ffd-vita/releases",
-    "updated_at": "2026-08-13T15:34:48.445030+00:00"
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "vitahot",
@@ -23136,63 +23141,6 @@
     "updated_at": "2026-08-13T15:34:48.481168+00:00"
   },
   {
-    "id": "ff4ay-vita",
-    "title_id": "FF4AY0000",
-    "name": "FF4AY-Vita",
-    "description": "Port of Final Fantasy IV: The After Years for PSVITA.",
-    "long_description": "This is a wrapper/port of Final Fantasy IV: The After Years Android for the PS Vita.\nThe port works by loading the official Android ARMv7 executable in memory, resolving its imports with native functions and patching it in order to properly run. By doing so, it's basically as if we emulate a minimalist Android environment in which we run natively the executable as is.",
-    "author_ids": [
-      "bythos",
-      "rinnegatamante",
-      "frangarcj"
-    ],
-    "category_id": "ports",
-    "subcategory_ids": [
-      "other"
-    ],
-    "version": "v.1.0.1",
-    "version_date": "2023-09-05",
-    "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
-    "size": 21409360,
-    "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-ff4ay-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-ff4ay-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-ff4ay-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-ff4ay-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-ff4ay-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-ff4ay-vita/shot_05.png"
-    ],
-    "links": [
-      {
-        "type": "Download",
-        "name": "VPK",
-        "url": "https://archive.org/download/psvitaalive-ff4ay-vita/ff4ay-vita.vpk",
-        "recommended": true
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/ff4a_vita/releases"
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/ff4a_vita/releases/tag/v.1.0.1"
-      },
-      {
-        "type": "Repository",
-        "name": "Repositorio",
-        "url": "https://github.com/Rinnegatamante/ff4a_vita"
-      }
-    ],
-    "source_name": "VitaHomebrewDB",
-    "source_id": "989",
-    "source_url": "https://github.com/Rinnegatamante/ff4a_vita",
-    "release_page": "https://github.com/Rinnegatamante/ff4a_vita/releases",
-    "updated_at": "2026-08-13T15:34:48.480606+00:00"
-  },
-  {
     "id": "fahrenheit-vita",
     "title_id": "FAHRENEIT",
     "name": "Fahrenheit Vita",
@@ -23312,8 +23260,8 @@
     "long_description": "This is a wrapper/port of Final Fantasy IV (3D Remake) Android for the PS Vita.\nThe port works by loading the official Android ARMv7 executable in memory, resolving its imports with native functions and patching it in order to properly run.",
     "author_ids": [
       "bythos",
-      "rinnegatamante",
       "frangarcj",
+      "rinnegatamante",
       "theflow"
     ],
     "category_id": "ports",
@@ -23323,16 +23271,8 @@
     "version": "v.1.3.1",
     "version_date": "2023-09-05",
     "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- fd_fix.skprx OR repatch_ex.skprx\n- Game Data Files: Android",
-    "size": 23492097,
+    "size": 23492297,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-ff4-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-ff4-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-ff4-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-ff4-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-ff4-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-ff4-vita/shot_05.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -23341,14 +23281,11 @@
         "recommended": true
       },
       {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/ff4_vita/releases"
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/Rinnegatamante/ff4_vita/releases/tag/v.1.3.1"
+        "type": "Download",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-ff4-vita/Game%20Files.zip",
+        "size": 545574093,
+        "recommended": false
       },
       {
         "type": "Repository",
@@ -23356,11 +23293,75 @@
         "url": "https://github.com/Rinnegatamante/ff4_vita"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-ff4-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-ff4-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-ff4-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-ff4-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-ff4-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-ff4-vita/shot_05.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "726",
     "source_url": "https://github.com/Rinnegatamante/ff4_vita",
     "release_page": "https://github.com/Rinnegatamante/ff4_vita/releases",
-    "updated_at": "2026-08-13T15:34:48.477990+00:00"
+    "updated_at": "2026-08-13T15:34"
+  },
+  {
+    "id": "ff4ay-vita",
+    "title_id": "FF4AY0000",
+    "name": "FF4AY-Vita",
+    "description": "Port of Final Fantasy IV: The After Years for PSVITA.",
+    "long_description": "This is a wrapper/port of Final Fantasy IV: The After Years Android for the PS Vita.\nThe port works by loading the official Android ARMv7 executable in memory, resolving its imports with native functions and patching it in order to properly run. By doing so, it's basically as if we emulate a minimalist Android environment in which we run natively the executable as is.",
+    "author_ids": [
+      "bythos",
+      "frangarcj",
+      "rinnegatamante"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "rpg",
+      "strategy",
+      "other"
+    ],
+    "version": "v.1.0.1",
+    "version_date": "2023-09-05",
+    "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
+    "size": 21409825,
+    "status": "Legacy",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/psvitaalive-ff4ay-vita/ff4ay-vita.vpk",
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-ff4ay-vita/Game%20Files.zip",
+        "size": 478884659,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "Repositorio",
+        "url": "https://github.com/Rinnegatamante/ff4a_vita"
+      }
+    ],
+    "icon": "https://archive.org/download/psvitaalive-ff4ay-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-ff4ay-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-ff4ay-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-ff4ay-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-ff4ay-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-ff4ay-vita/shot_05.png"
+    ],
+    "source_name": "VitaHomebrewDB",
+    "source_id": "989",
+    "source_url": "https://github.com/Rinnegatamante/ff4a_vita",
+    "release_page": "https://github.com/Rinnegatamante/ff4a_vita/releases",
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "sonic-mania-vita",
@@ -33845,21 +33846,15 @@
     ],
     "category_id": "ports",
     "subcategory_ids": [
+      "rpg",
+      "strategy",
       "other"
     ],
     "version": "v.1.0",
     "version_date": "2021-10-08",
     "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- fd_fix.skprx OR repatch_ex.skprx\n- Game Data Files: Android",
-    "size": 16548837,
+    "size": 16548626,
     "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-ff5-vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-ff5-vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-ff5-vita/shot_02.png",
-      "https://archive.org/download/psvitaalive-ff5-vita/shot_03.png",
-      "https://archive.org/download/psvitaalive-ff5-vita/shot_04.png",
-      "https://archive.org/download/psvitaalive-ff5-vita/shot_05.png"
-    ],
     "links": [
       {
         "type": "Download",
@@ -33868,14 +33863,11 @@
         "recommended": true
       },
       {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/frangarcj/ff5_vita/releases"
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/frangarcj/ff5_vita/releases/tag/v1.0"
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-ff5-vita/Game%20Files.zip",
+        "size": 154874675,
+        "extract_path": "ux0:data/"
       },
       {
         "type": "Repository",
@@ -33883,11 +33875,19 @@
         "url": "https://github.com/frangarcj/ff5_vita"
       }
     ],
+    "icon": "https://archive.org/download/psvitaalive-ff5-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-ff5-vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-ff5-vita/shot_02.png",
+      "https://archive.org/download/psvitaalive-ff5-vita/shot_03.png",
+      "https://archive.org/download/psvitaalive-ff5-vita/shot_04.png",
+      "https://archive.org/download/psvitaalive-ff5-vita/shot_05.png"
+    ],
     "source_name": "VitaHomebrewDB",
     "source_id": "733",
     "source_url": "https://github.com/frangarcj/ff5_vita",
     "release_page": "https://github.com/frangarcj/ff5_vita/releases",
-    "updated_at": "2026-08-13T15:34:48.569477+00:00"
+    "updated_at": "2026-08-13T15:34"
   },
   {
     "id": "space-cadet-pinball-vita",

@@ -30,7 +30,8 @@
       "type": "Download",
       "name": "Game Files",
       "url": "https://archive.org/download/pac-man-ce-dx-ps-vita/Game%20Files.zip",
-      "size": 217055232
+      "size": 217055232,
+      "recommended": false
     },
     {
       "type": "Repository",

@@ -30,7 +30,8 @@
       "type": "Download",
       "name": "Game Files",
       "url": "https://archive.org/download/psvitaalive-ff4-vita/Game%20Files.zip",
-      "size": 545574093
+      "size": 545574093,
+      "recommended": false
     },
     {
       "type": "Repository",
