@@ -13,8 +13,8 @@
     "adventure",
     "strategy"
   ],
-  "version": "00.00",
-  "version_date": "2026-08-24",
+  "version": "0.7.1",
+  "version_date": "2026-09-21",
   "requirements": "- ISO The Legend of Zelda: Twilight Princess Region USA.",
   "size": 14499709,
   "status": "Verified",
@@ -22,16 +22,9 @@
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://archive.org/download/duskligth-ps-vita/DuskGXM-0-5-1.vpk",
+      "url": "https://archive.org/download/duskligth-ps-vita/DuskGXM-0-7-1.vpk",
       "size": 14499709,
       "recommended": true
-    },
-    {
-      "type": "Download",
-      "name": "VPK - MEDIAFIRE",
-      "url": "https://www.mediafire.com/file/3a012dwm6tcurwd/DuskGXM-0-5-1.vpk/file",
-      "size": 14499709,
-      "recommended": false
     },
     {
       "type": "Game Files",
