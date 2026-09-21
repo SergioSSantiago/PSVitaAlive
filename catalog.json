@@ -17470,9 +17470,9 @@
       {
         "type": "Game Files",
         "name": "Game Files",
-        "url": "https://archive.org/download/psvitaalive-pureya-vita/Game%20Files.zip",
+        "url": "https://archive.org/download/psvitaalive-pureya-vita/Game%20Files%20Fix.zip",
         "size": 63229133,
-        "extract_path": "ux0:app/PRYA22322/"
+        "extract_path": "ux0:app/"
       },
       {
         "type": "Official Website",
