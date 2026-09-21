@@ -17321,7 +17321,7 @@
         "name": "Game Files",
         "url": "https://archive.org/download/psvitaalive-cuphead-vita/Game%20Files%20Fix.zip",
         "size": 1181116006,
-        "extract_path": "ux0:app/CPHD23233/"
+        "extract_path": "ux0:app/"
       },
       {
         "type": "Plugin",
