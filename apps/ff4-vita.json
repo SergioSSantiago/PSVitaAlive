@@ -6,8 +6,8 @@
   "long_description": "This is a wrapper/port of Final Fantasy IV (3D Remake) Android for the PS Vita.\nThe port works by loading the official Android ARMv7 executable in memory, resolving its imports with native functions and patching it in order to properly run.",
   "author_ids": [
     "bythos",
-    "rinnegatamante",
     "frangarcj",
+    "rinnegatamante",
     "theflow"
   ],
   "category_id": "ports",
@@ -17,16 +17,8 @@
   "version": "v.1.3.1",
   "version_date": "2023-09-05",
   "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- fd_fix.skprx OR repatch_ex.skprx\n- Game Data Files: Android",
-  "size": 23492097,
+  "size": 23492297,
   "status": "Legacy",
-  "icon": "https://archive.org/download/psvitaalive-ff4-vita/icon0.png",
-  "screenshots": [
-    "https://archive.org/download/psvitaalive-ff4-vita/shot_01.png",
-    "https://archive.org/download/psvitaalive-ff4-vita/shot_02.png",
-    "https://archive.org/download/psvitaalive-ff4-vita/shot_03.png",
-    "https://archive.org/download/psvitaalive-ff4-vita/shot_04.png",
-    "https://archive.org/download/psvitaalive-ff4-vita/shot_05.png"
-  ],
   "links": [
     {
       "type": "Download",
@@ -35,14 +27,10 @@
       "recommended": true
     },
     {
-      "type": "Official Website",
-      "name": "Release Page",
-      "url": "https://github.com/Rinnegatamante/ff4_vita/releases"
-    },
-    {
-      "type": "Official Website",
-      "name": "Release Page",
-      "url": "https://github.com/Rinnegatamante/ff4_vita/releases/tag/v.1.3.1"
+      "type": "Download",
+      "name": "Game Files",
+      "url": "https://archive.org/download/psvitaalive-ff4-vita/Game%20Files.zip",
+      "size": 545574093
     },
     {
       "type": "Repository",
@@ -50,9 +38,17 @@
       "url": "https://github.com/Rinnegatamante/ff4_vita"
     }
   ],
+  "icon": "https://archive.org/download/psvitaalive-ff4-vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/psvitaalive-ff4-vita/shot_01.png",
+    "https://archive.org/download/psvitaalive-ff4-vita/shot_02.png",
+    "https://archive.org/download/psvitaalive-ff4-vita/shot_03.png",
+    "https://archive.org/download/psvitaalive-ff4-vita/shot_04.png",
+    "https://archive.org/download/psvitaalive-ff4-vita/shot_05.png"
+  ],
   "source_name": "VitaHomebrewDB",
   "source_id": "726",
   "source_url": "https://github.com/Rinnegatamante/ff4_vita",
   "release_page": "https://github.com/Rinnegatamante/ff4_vita/releases",
-  "updated_at": "2026-08-13T15:34:48.477990+00:00"
+  "updated_at": "2026-08-13T15:34"
 }

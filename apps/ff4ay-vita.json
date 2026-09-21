@@ -6,26 +6,20 @@
   "long_description": "This is a wrapper/port of Final Fantasy IV: The After Years Android for the PS Vita.\nThe port works by loading the official Android ARMv7 executable in memory, resolving its imports with native functions and patching it in order to properly run. By doing so, it's basically as if we emulate a minimalist Android environment in which we run natively the executable as is.",
   "author_ids": [
     "bythos",
-    "rinnegatamante",
-    "frangarcj"
+    "frangarcj",
+    "rinnegatamante"
   ],
   "category_id": "ports",
   "subcategory_ids": [
+    "rpg",
+    "strategy",
     "other"
   ],
   "version": "v.1.0.1",
   "version_date": "2023-09-05",
   "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
-  "size": 21409360,
+  "size": 21409825,
   "status": "Legacy",
-  "icon": "https://archive.org/download/psvitaalive-ff4ay-vita/icon0.png",
-  "screenshots": [
-    "https://archive.org/download/psvitaalive-ff4ay-vita/shot_01.png",
-    "https://archive.org/download/psvitaalive-ff4ay-vita/shot_02.png",
-    "https://archive.org/download/psvitaalive-ff4ay-vita/shot_03.png",
-    "https://archive.org/download/psvitaalive-ff4ay-vita/shot_04.png",
-    "https://archive.org/download/psvitaalive-ff4ay-vita/shot_05.png"
-  ],
   "links": [
     {
       "type": "Download",
@@ -34,14 +28,11 @@
       "recommended": true
     },
     {
-      "type": "Official Website",
-      "name": "Release Page",
-      "url": "https://github.com/Rinnegatamante/ff4a_vita/releases"
-    },
-    {
-      "type": "Official Website",
-      "name": "Release Page",
-      "url": "https://github.com/Rinnegatamante/ff4a_vita/releases/tag/v.1.0.1"
+      "type": "Game Files",
+      "name": "Game Files",
+      "url": "https://archive.org/download/psvitaalive-ff4ay-vita/Game%20Files.zip",
+      "size": 478884659,
+      "extract_path": "ux0:data/"
     },
     {
       "type": "Repository",
@@ -49,9 +40,17 @@
       "url": "https://github.com/Rinnegatamante/ff4a_vita"
     }
   ],
+  "icon": "https://archive.org/download/psvitaalive-ff4ay-vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/psvitaalive-ff4ay-vita/shot_01.png",
+    "https://archive.org/download/psvitaalive-ff4ay-vita/shot_02.png",
+    "https://archive.org/download/psvitaalive-ff4ay-vita/shot_03.png",
+    "https://archive.org/download/psvitaalive-ff4ay-vita/shot_04.png",
+    "https://archive.org/download/psvitaalive-ff4ay-vita/shot_05.png"
+  ],
   "source_name": "VitaHomebrewDB",
   "source_id": "989",
   "source_url": "https://github.com/Rinnegatamante/ff4a_vita",
   "release_page": "https://github.com/Rinnegatamante/ff4a_vita/releases",
-  "updated_at": "2026-08-13T15:34:48.480606+00:00"
+  "updated_at": "2026-08-13T15:34"
 }

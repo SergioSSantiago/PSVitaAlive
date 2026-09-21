@@ -9,23 +9,28 @@
   ],
   "category_id": "ports",
   "subcategory_ids": [
-    "other"
+    "arcade",
+    "puzzle",
+    "strategy"
   ],
-  "version": "v.1.0",
-  "version_date": "2026-06-07",
+  "version": "3.0",
+  "version_date": "2026-09-12",
   "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
-  "size": 1953422,
-  "status": "Legacy",
-  "icon": "https://archive.org/download/psvitaalive-pacman-ce-dx-vita/icon0.png",
-  "screenshots": [
-    "https://archive.org/download/psvitaalive-pacman-ce-dx-vita/shot_01.png"
-  ],
+  "size": 2202010,
+  "status": "Verified",
   "links": [
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://archive.org/download/psvitaalive-pacman-ce-dx-vita/pacman-ce-dx-vita.vpk",
+      "url": "https://archive.org/download/pac-man-ce-dx-ps-vita/pacmancedx.vpk",
+      "size": 2202010,
       "recommended": true
+    },
+    {
+      "type": "Download",
+      "name": "Game Files",
+      "url": "https://archive.org/download/pac-man-ce-dx-ps-vita/Game%20Files.zip",
+      "size": 217055232
     },
     {
       "type": "Repository",
@@ -33,9 +38,12 @@
       "url": "https://github.com/mcallbosco/pacman-cedx-vita"
     }
   ],
+  "icon": "https://archive.org/download/pac-man-ce-dx-ps-vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/pac-man-ce-dx-ps-vita/shot0.jpg"
+  ],
   "source_name": "VitaHomebrewDB",
   "source_id": "1409",
   "source_url": "https://github.com/mcallbosco/pacman-cedx-vita",
-  "release_page": "",
-  "updated_at": "2026-08-13T15:34:48.341543+00:00"
+  "updated_at": "2026-08-13T15:34"
 }
