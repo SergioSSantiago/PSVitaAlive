@@ -14,21 +14,31 @@
   "version": "v.0.82",
   "version_date": "2024-10-10",
   "requirements": "- Game Data Files: PC",
-  "size": 17382244,
+  "size": 17406362,
   "status": "Legacy",
   "links": [
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://archive.org/download/psvitaalive-cuphead-vita/cuphead-vita.vpk",
+      "url": "https://archive.org/download/psvitaalive-cuphead-vita/Cuphead_v0.82.vpk",
+      "size": 17406362,
       "recommended": true
     },
     {
       "type": "Game Files",
       "name": "Game Files",
-      "url": "https://archive.org/download/psvitaalive-cuphead-vita/Game%20Files.zip",
+      "url": "https://archive.org/download/psvitaalive-cuphead-vita/Game%20Files%20Fix.zip",
       "size": 1181116006,
       "extract_path": "ux0:app/CPHD23233/"
+    },
+    {
+      "type": "Plugin",
+      "name": "ioPlus-0.2 Plugin (Required)",
+      "url": "https://archive.org/download/plugins-ps-vita/ioplus.skprx",
+      "size": 3379,
+      "extract_path": "ur0:tai/",
+      "section": "*KERNEL",
+      "line": "ur0:tai/ioplus.skprx"
     },
     {
       "type": "Official Website",
