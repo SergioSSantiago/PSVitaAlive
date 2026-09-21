@@ -1,5 +1,60 @@
 [
   {
+    "id": "jk2vita",
+    "title_id": "JK2VITA01",
+    "name": "JK2VITA",
+    "description": "Port of Star Wars Jedi Knight II: Jedi Outcast for PSVita.",
+    "long_description": "Port of Star Wars Jedi Knight II: Jedi Outcast for PSVita based over OpenJK.",
+    "author_ids": [
+      "ndrw"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "action",
+      "adventure",
+      "fps",
+      "shooter",
+      "strategy",
+      "other"
+    ],
+    "version": "1.0.1",
+    "version_date": "2026-09-20",
+    "requirements": "- Game Data Files: PC",
+    "size": 3460301,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/psvitaalive-jk2vita/JK2VITA_1.0.1.vpk",
+        "size": 3460301,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/psvitaalive-jk2vita/Game%20Files.zip",
+        "size": 626314445,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "Repositorio",
+        "url": "https://github.com/NDRWhun/JK2VITA"
+      }
+    ],
+    "icon": "https://archive.org/download/psvitaalive-jk2vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/psvitaalive-jk2vita/shot_01.png",
+      "https://archive.org/download/psvitaalive-jk2vita/shot_02.png"
+    ],
+    "source_name": "VitaDB",
+    "source_id": "1480",
+    "source_url": "https://github.com/NDRWhun/JK2VITA",
+    "release_page": "https://github.com/NDRWhun/JK2VITA/releases",
+    "updated_at": "2026-08-22T15:39"
+  },
+  {
     "id": "sssplayer",
     "title_id": "SSSP00001",
     "name": "SSSPlayer",
@@ -1626,6 +1681,60 @@
     ]
   },
   {
+    "id": "javita",
+    "title_id": "JAVITA001",
+    "name": "JAVITA",
+    "description": "Port of Star Wars Jedi Knight: Jedi Academy for PSVita.",
+    "long_description": "Port of Star Wars Jedi Knight: Jedi Academy for PSVita based on OpenJK.",
+    "author_ids": [
+      "ndrw"
+    ],
+    "category_id": "ports",
+    "subcategory_ids": [
+      "action",
+      "adventure",
+      "fps",
+      "shooter",
+      "strategy",
+      "other"
+    ],
+    "version": "v.1.0.1",
+    "version_date": "2026-08-27",
+    "requirements": "- Game Data Files: PC",
+    "size": 3818914,
+    "status": "Verified",
+    "links": [
+      {
+        "type": "Download",
+        "name": "VPK",
+        "url": "https://archive.org/download/javita-ps-vita/JAVITA_1.0.1.vpk",
+        "size": 3818914,
+        "recommended": true
+      },
+      {
+        "type": "Game Files",
+        "name": "Game Files",
+        "url": "https://archive.org/download/javita-ps-vita/Game%20Files.zip",
+        "size": 1181116006,
+        "extract_path": "ux0:data/"
+      },
+      {
+        "type": "Repository",
+        "name": "Repositorio",
+        "url": "https://github.com/NDRWhun/JAVITA"
+      }
+    ],
+    "icon": "https://archive.org/download/javita-ps-vita/icon0.png",
+    "screenshots": [
+      "https://archive.org/download/javita-ps-vita/shot0.png"
+    ],
+    "source_name": "VitaDB",
+    "source_id": "1481",
+    "source_url": "https://github.com/NDRWhun/JAVITA",
+    "release_page": "https://github.com/NDRWhun/JAVITA/releases",
+    "updated_at": "2026-08-22T15:39"
+  },
+  {
     "id": "batman-the-dark-knight-rises",
     "title_id": "KRAS00000",
     "name": "Batman - The Dark Knight Rises",
@@ -1965,55 +2074,6 @@
     "source_url": "https://github.com/celticg/AS-Pocket-Mortys-vita",
     "release_page": "https://github.com/celticg/AS-Pocket-Mortys-vita",
     "updated_at": "2026-08-23T09:47:03.656067+00:00"
-  },
-  {
-    "id": "javita",
-    "title_id": "JAVITA001",
-    "name": "JAVITA",
-    "description": "Port of Star Wars Jedi Knight: Jedi Academy for PSVita.",
-    "long_description": "Port of Star Wars Jedi Knight: Jedi Academy for PSVita based on OpenJK.",
-    "author_ids": [
-      "ndrw"
-    ],
-    "category_id": "ports",
-    "subcategory_ids": [
-      "other"
-    ],
-    "version": "v.1.0",
-    "version_date": "2026-08-22",
-    "requirements": "- Game Data Files: PC",
-    "size": 3818914,
-    "status": "Legacy",
-    "links": [
-      {
-        "type": "Download",
-        "name": "VPK",
-        "url": "https://archive.org/download/JK2VITA/JAVITA-1.0.vpk",
-        "size": 3818914,
-        "recommended": true
-      },
-      {
-        "type": "Download",
-        "name": "VPK Mediafire",
-        "url": "https://www.mediafire.com/file/0alnjuu3bskbi5h/JAVITA-1.0.vpk/file",
-        "size": 3818914,
-        "recommended": false
-      },
-      {
-        "type": "Repository",
-        "name": "Repositorio",
-        "url": "https://github.com/NDRWhun/JAVITA"
-      }
-    ],
-    "icon": "https://archive.org/download/JK2VITA/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/JK2VITA/shot_01.png"
-    ],
-    "source_name": "VitaDB",
-    "source_id": "1481",
-    "source_url": "https://github.com/NDRWhun/JAVITA",
-    "release_page": "https://github.com/NDRWhun/JAVITA/releases",
-    "updated_at": "2026-08-22T15:39"
   },
   {
     "id": "jazz-jackrabbit-2-resurrection",
@@ -4046,60 +4106,6 @@
     "source_url": "https://github.com/josephinoo/vitaForge",
     "release_page": "https://github.com/josephinoo/vitaForge/releases",
     "updated_at": "2026-08-13T15:34:48.323857+00:00"
-  },
-  {
-    "id": "jk2vita",
-    "title_id": "JK2VITA01",
-    "name": "JK2VITA",
-    "description": "Port of Star Wars Jedi Knight II: Jedi Outcast for PSVita.",
-    "long_description": "Port of Star Wars Jedi Knight II: Jedi Outcast for PSVita based over OpenJK.",
-    "author_ids": [
-      "ndrw"
-    ],
-    "category_id": "ports",
-    "subcategory_ids": [
-      "other"
-    ],
-    "version": "v.1.0",
-    "version_date": "2026-08-10",
-    "requirements": "- Game Data Files: PC",
-    "size": 3422087,
-    "status": "Legacy",
-    "icon": "https://archive.org/download/psvitaalive-jk2vita/icon0.png",
-    "screenshots": [
-      "https://archive.org/download/psvitaalive-jk2vita/shot_01.png",
-      "https://archive.org/download/psvitaalive-jk2vita/shot_02.png"
-    ],
-    "links": [
-      {
-        "type": "Download",
-        "name": "VPK",
-        "url": "https://archive.org/download/psvitaalive-jk2vita/jk2vita.vpk",
-        "recommended": true
-      },
-      {
-        "type": "Download",
-        "name": "VPK Mediafire",
-        "url": "https://www.mediafire.com/file/0alnjuu3bskbi5h/JAVITA-1.0.vpk/file",
-        "recommended": false,
-        "size": 3819434
-      },
-      {
-        "type": "Official Website",
-        "name": "Release Page",
-        "url": "https://github.com/NDRWhun/JK2VITA/releases"
-      },
-      {
-        "type": "Repository",
-        "name": "Repositorio",
-        "url": "https://github.com/NDRWhun/JK2VITA"
-      }
-    ],
-    "source_name": "VitaDB",
-    "source_id": "1480",
-    "source_url": "https://github.com/NDRWhun/JK2VITA",
-    "release_page": "https://github.com/NDRWhun/JK2VITA/releases",
-    "updated_at": "2026-08-22T15:39:32.751200+00:00"
   },
   {
     "id": "supertux-classic",
