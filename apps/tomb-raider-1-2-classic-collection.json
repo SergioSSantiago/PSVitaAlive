@@ -9,21 +9,18 @@
   ],
   "category_id": "ports",
   "subcategory_ids": [
+    "action",
+    "adventure",
+    "platformer",
+    "shooter",
+    "strategy",
     "other"
   ],
   "version": "v.1.2",
   "version_date": "2024-02-14",
   "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- fd_fix.skprx OR repatch_ex.skprx\n- Game Data Files: Android",
-  "size": 9305524,
+  "size": 9305063,
   "status": "Legacy",
-  "icon": "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/icon0.png",
-  "screenshots": [
-    "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_01.png",
-    "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_02.png",
-    "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_03.png",
-    "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_04.png",
-    "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_05.png"
-  ],
   "links": [
     {
       "type": "Download",
@@ -32,14 +29,11 @@
       "recommended": true
     },
     {
-      "type": "Official Website",
-      "name": "Release Page",
-      "url": "https://github.com/Rinnegatamante/raider-vita/releases"
-    },
-    {
-      "type": "Official Website",
-      "name": "Release Page",
-      "url": "https://github.com/Rinnegatamante/raider-vita/releases/tag/v.1.2"
+      "type": "Game Files",
+      "name": "Game Files",
+      "url": "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/Game%20Files.zip",
+      "size": 735156634,
+      "extract_path": "ux0:data/"
     },
     {
       "type": "Repository",
@@ -47,9 +41,17 @@
       "url": "https://github.com/Rinnegatamante/raider-vita"
     }
   ],
+  "icon": "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_01.png",
+    "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_02.png",
+    "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_03.png",
+    "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_04.png",
+    "https://archive.org/download/psvitaalive-tomb-raider-1-2-classic-collection/shot_05.png"
+  ],
   "source_name": "VitaHomebrewDB",
   "source_id": "845",
   "source_url": "https://github.com/Rinnegatamante/raider-vita",
   "release_page": "https://github.com/Rinnegatamante/raider-vita/releases",
-  "updated_at": "2026-08-13T15:34:48.448810+00:00"
+  "updated_at": "2026-08-13T15:34"
 }

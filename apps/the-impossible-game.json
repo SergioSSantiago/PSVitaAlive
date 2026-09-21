@@ -13,8 +13,8 @@
     "puzzle",
     "strategy"
   ],
-  "version": "1.0.0",
-  "version_date": "2026-09-16",
+  "version": "1.1.0",
+  "version_date": "2026-09-20",
   "requirements": "- kubridge installed as a kernel plugin (ur0:tai/config.txt under *KERNEL).\n- libshacccg.suprx installed in ur0:data/ (required by vitaGL's fixed-function shader compiler).",
   "size": 800461,
   "status": "Verified",
@@ -22,7 +22,7 @@
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://archive.org/download/the-impossible-game-ps-vita-port/theimpossiblegame%20v1.0.0.vpk",
+      "url": "https://archive.org/download/the-impossible-game-ps-vita-port/theimpossiblegame%20v1.1.0.vpk",
       "size": 800461,
       "recommended": true
     },
