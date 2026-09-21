@@ -5,27 +5,21 @@
   "description": "Port of Resident Evil 4 Mobile for PSVita.",
   "long_description": "Port of Resident Evil 4 Mobile for PSVita.\nResident Evil 4 Mobile is an heavily downgraded demake of Resident Evil 4 for Android devices.\n\nNote: this download is hosted on an external server, not GitHub, and may stop working if that server goes down or changes without the catalog knowing.",
   "author_ids": [
-    "yizhigai",
+    "kaaass",
     "spritelisen",
-    "kaaass"
+    "yizhigai"
   ],
   "category_id": "ports",
   "subcategory_ids": [
+    "fps",
+    "shooter",
     "other"
   ],
   "version": "v.1.1",
   "version_date": "2026-06-06",
   "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
-  "size": 3233206,
+  "size": 3232760,
   "status": "Legacy",
-  "icon": "https://archive.org/download/psvitaalive-biohazard4-vita/icon0.png",
-  "screenshots": [
-    "https://archive.org/download/psvitaalive-biohazard4-vita/shot_01.png",
-    "https://archive.org/download/psvitaalive-biohazard4-vita/shot_02.png",
-    "https://archive.org/download/psvitaalive-biohazard4-vita/shot_03.png",
-    "https://archive.org/download/psvitaalive-biohazard4-vita/shot_04.png",
-    "https://archive.org/download/psvitaalive-biohazard4-vita/shot_05.png"
-  ],
   "links": [
     {
       "type": "Download",
@@ -34,14 +28,28 @@
       "recommended": true
     },
     {
+      "type": "Game Files",
+      "name": "Game Files",
+      "url": "https://archive.org/download/psvitaalive-biohazard4-vita/Game%20Files.zip",
+      "size": 87660954,
+      "extract_path": "ux0:data/"
+    },
+    {
       "type": "Repository",
       "name": "Repositorio",
       "url": "https://gitee.com/Moqi01/bio4"
     }
   ],
+  "icon": "https://archive.org/download/psvitaalive-biohazard4-vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/psvitaalive-biohazard4-vita/shot_01.png",
+    "https://archive.org/download/psvitaalive-biohazard4-vita/shot_02.png",
+    "https://archive.org/download/psvitaalive-biohazard4-vita/shot_03.png",
+    "https://archive.org/download/psvitaalive-biohazard4-vita/shot_04.png",
+    "https://archive.org/download/psvitaalive-biohazard4-vita/shot_05.png"
+  ],
   "source_name": "VitaHomebrewDB",
   "source_id": "1402",
   "source_url": "https://gitee.com/Moqi01/bio4",
-  "release_page": "",
-  "updated_at": "2026-08-13T15:34:48.342318+00:00"
+  "updated_at": "2026-08-13T15:34"
 }

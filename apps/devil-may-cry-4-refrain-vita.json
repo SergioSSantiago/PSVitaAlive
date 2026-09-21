@@ -5,27 +5,21 @@
   "description": "Port of Devil May Cry 4 Refrain for PSVita.",
   "long_description": "Port of Devil May Cry 4 Refrain for PSVita.\nDevil May Cry 4 Refrain is a mobile spinoff in the universe of Devil May Cry franchise.\n\nNote: this download is hosted on an external server, not GitHub, and may stop working if that server goes down or changes without the catalog knowing.",
   "author_ids": [
-    "yizhigai",
+    "kaaass",
     "spritelisen",
-    "kaaass"
+    "yizhigai"
   ],
   "category_id": "ports",
   "subcategory_ids": [
+    "action",
+    "strategy",
     "other"
   ],
   "version": "BETA",
   "version_date": "2026-03-31",
   "requirements": "- libshacccg.suprx\n- kubridge.skprx\n- Game Data Files: Android",
-  "size": 1258697,
+  "size": 1258291,
   "status": "Legacy",
-  "icon": "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/icon0.png",
-  "screenshots": [
-    "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_01.png",
-    "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_02.png",
-    "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_03.png",
-    "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_04.png",
-    "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_05.png"
-  ],
   "links": [
     {
       "type": "Download",
@@ -34,14 +28,28 @@
       "recommended": true
     },
     {
+      "type": "Game Files",
+      "name": "Game Files",
+      "url": "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/Game%20Files.zip",
+      "size": 321388544,
+      "extract_path": "ux0:data/"
+    },
+    {
       "type": "Repository",
       "name": "Repositorio",
       "url": "https://gitee.com/Moqi01/acrodea_runtime"
     }
   ],
+  "icon": "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_01.png",
+    "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_02.png",
+    "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_03.png",
+    "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_04.png",
+    "https://archive.org/download/psvitaalive-devil-may-cry-4-refrain-vita/shot_05.png"
+  ],
   "source_name": "VitaHomebrewDB",
   "source_id": "1377",
   "source_url": "https://gitee.com/Moqi01/acrodea_runtime",
-  "release_page": "",
-  "updated_at": "2026-08-13T15:34:48.357122+00:00"
+  "updated_at": "2026-08-13T15:34"
 }
