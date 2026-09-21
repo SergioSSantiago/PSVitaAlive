@@ -9,27 +9,32 @@
   ],
   "category_id": "ports",
   "subcategory_ids": [
+    "action",
+    "adventure",
+    "fps",
+    "shooter",
+    "strategy",
     "other"
   ],
-  "version": "v.1.0",
-  "version_date": "2026-08-22",
+  "version": "v.1.0.1",
+  "version_date": "2026-08-27",
   "requirements": "- Game Data Files: PC",
   "size": 3818914,
-  "status": "Legacy",
+  "status": "Verified",
   "links": [
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://archive.org/download/JK2VITA/JAVITA-1.0.vpk",
+      "url": "https://archive.org/download/javita-ps-vita/JAVITA_1.0.1.vpk",
       "size": 3818914,
       "recommended": true
     },
     {
-      "type": "Download",
-      "name": "VPK Mediafire",
-      "url": "https://www.mediafire.com/file/0alnjuu3bskbi5h/JAVITA-1.0.vpk/file",
-      "size": 3818914,
-      "recommended": false
+      "type": "Game Files",
+      "name": "Game Files",
+      "url": "https://archive.org/download/javita-ps-vita/Game%20Files.zip",
+      "size": 1181116006,
+      "extract_path": "ux0:data/"
     },
     {
       "type": "Repository",
@@ -37,9 +42,9 @@
       "url": "https://github.com/NDRWhun/JAVITA"
     }
   ],
-  "icon": "https://archive.org/download/JK2VITA/icon0.png",
+  "icon": "https://archive.org/download/javita-ps-vita/icon0.png",
   "screenshots": [
-    "https://archive.org/download/JK2VITA/shot_01.png"
+    "https://archive.org/download/javita-ps-vita/shot0.png"
   ],
   "source_name": "VitaDB",
   "source_id": "1481",

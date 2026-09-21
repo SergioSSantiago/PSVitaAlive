@@ -9,36 +9,32 @@
   ],
   "category_id": "ports",
   "subcategory_ids": [
+    "action",
+    "adventure",
+    "fps",
+    "shooter",
+    "strategy",
     "other"
   ],
-  "version": "v.1.0",
-  "version_date": "2026-08-10",
+  "version": "1.0.1",
+  "version_date": "2026-09-20",
   "requirements": "- Game Data Files: PC",
-  "size": 3422087,
-  "status": "Legacy",
-  "icon": "https://archive.org/download/psvitaalive-jk2vita/icon0.png",
-  "screenshots": [
-    "https://archive.org/download/psvitaalive-jk2vita/shot_01.png",
-    "https://archive.org/download/psvitaalive-jk2vita/shot_02.png"
-  ],
+  "size": 3460301,
+  "status": "Verified",
   "links": [
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://archive.org/download/psvitaalive-jk2vita/jk2vita.vpk",
+      "url": "https://archive.org/download/psvitaalive-jk2vita/JK2VITA_1.0.1.vpk",
+      "size": 3460301,
       "recommended": true
     },
     {
-      "type": "Download",
-      "name": "VPK Mediafire",
-      "url": "https://www.mediafire.com/file/0alnjuu3bskbi5h/JAVITA-1.0.vpk/file",
-      "recommended": false,
-      "size": 3819434
-    },
-    {
-      "type": "Official Website",
-      "name": "Release Page",
-      "url": "https://github.com/NDRWhun/JK2VITA/releases"
+      "type": "Game Files",
+      "name": "Game Files",
+      "url": "https://archive.org/download/psvitaalive-jk2vita/Game%20Files.zip",
+      "size": 626314445,
+      "extract_path": "ux0:data/"
     },
     {
       "type": "Repository",
@@ -46,9 +42,14 @@
       "url": "https://github.com/NDRWhun/JK2VITA"
     }
   ],
+  "icon": "https://archive.org/download/psvitaalive-jk2vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/psvitaalive-jk2vita/shot_01.png",
+    "https://archive.org/download/psvitaalive-jk2vita/shot_02.png"
+  ],
   "source_name": "VitaDB",
   "source_id": "1480",
   "source_url": "https://github.com/NDRWhun/JK2VITA",
   "release_page": "https://github.com/NDRWhun/JK2VITA/releases",
-  "updated_at": "2026-08-22T15:39:32.751200+00:00"
+  "updated_at": "2026-08-22T15:39"
 }
