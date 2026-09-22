@@ -1,0 +1,57 @@
+{
+  "id": "simpsons-hit-run",
+  "title_id": "ROADRAGE2",
+  "name": "Simpsons Hit & Run",
+  "description": "Switch port of The Simpsons: Hit & Run original source code from 2003",
+  "long_description": "This is a port of The Simpsons Hit & Run to the Nintendo Switch and PS Vita based on the leaked source code. The full game should be playable, including local multiplayer in the bonus game. The port is however still incomplete, so some glitches can be observed and some visual effects are missing compared to the PC version.",
+  "author_ids": [
+    "zenoarrows"
+  ],
+  "category_id": "ports",
+  "subcategory_ids": [
+    "adventure",
+    "arcade",
+    "platformer",
+    "puzzle"
+  ],
+  "version": "0.6.1",
+  "version_date": "2024-07-22",
+  "requirements": "- no data",
+  "size": 19922944,
+  "status": "Verified",
+  "links": [
+    {
+      "type": "Download",
+      "name": "VPK Multi-language",
+      "url": "https://archive.org/download/simpsons-hit-run-ps-vita/SimpsonsPAL.vpk",
+      "size": 19922944,
+      "recommended": true
+    },
+    {
+      "type": "Download",
+      "name": "VPK Only English",
+      "url": "https://archive.org/download/simpsons-hit-run-ps-vita/SimpsonsNTSC.vpk",
+      "size": 19922944
+    },
+    {
+      "type": "Game Files",
+      "name": "Game Files English",
+      "url": "https://archive.org/download/simpsons-hit-run-ps-vita/Game%20Files%20English.zip",
+      "size": 1932735283,
+      "extract_path": "ux0:data/"
+    },
+    {
+      "type": "Game Files",
+      "name": "Game Files Spanish",
+      "url": "https://archive.org/download/simpsons-hit-run-ps-vita/Game%20Files%20Spanish.zip",
+      "size": 1932735283,
+      "extract_path": "ux0:data/"
+    },
+    {
+      "type": "Repository",
+      "name": "Github",
+      "url": "https://github.com/ZenoArrows/The-Simpsons-Hit-and-Run"
+    }
+  ],
+  "icon": "https://archive.org/download/simpsons-hit-run-ps-vita/icon0.png"
+}
