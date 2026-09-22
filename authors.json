@@ -4498,6 +4498,21 @@
     "icon": "https://github.com/kaonkaon.png"
   },
   {
+    "id": "kaziema",
+    "name": "kaziema",
+    "avatar": "https://avatars.githubusercontent.com/u/290817416?v=4",
+    "bio": "I try to build cool tools, games, and ports",
+    "links": [
+      {
+        "type": "Repository",
+        "name": "Github",
+        "url": "https://github.com/kaziema",
+        "recommended": true
+      }
+    ],
+    "icon": "https://avatars.githubusercontent.com/u/290817416?v=4"
+  },
+  {
     "id": "keltar",
     "name": "keltar",
     "avatar": "https://github.com/keltar.png",
