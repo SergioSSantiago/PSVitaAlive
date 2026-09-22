@@ -31,7 +31,8 @@
       "type": "Download",
       "name": "VPK Only English",
       "url": "https://archive.org/download/simpsons-hit-run-ps-vita/SimpsonsNTSC.vpk",
-      "size": 19922944
+      "size": 19922944,
+      "recommended": false
     },
     {
       "type": "Game Files",
@@ -53,5 +54,8 @@
       "url": "https://github.com/ZenoArrows/The-Simpsons-Hit-and-Run"
     }
   ],
-  "icon": "https://archive.org/download/simpsons-hit-run-ps-vita/icon0.png"
+  "icon": "https://archive.org/download/simpsons-hit-run-ps-vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/simpsons-hit-run-ps-vita/icon0.png"
+  ]
 }
