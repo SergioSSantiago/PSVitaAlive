@@ -1,0 +1,46 @@
+{
+  "id": "paper-mario-vita",
+  "title_id": "PPMR00001",
+  "name": "Paper Mario Vita",
+  "description": "This is built on top of PaperShip, the decomp-based port of Paper Mario 64 running on libultraship, retargeted for PS Vita hardware.",
+  "long_description": "This is built on top of PaperShip, the decomp-based port of Paper Mario 64 running on libultraship, retargeted for PS Vita hardware.",
+  "author_ids": [
+    "kaziema"
+  ],
+  "category_id": "ports",
+  "subcategory_ids": [
+    "adventure",
+    "platformer",
+    "puzzle"
+  ],
+  "version": "0.1.0",
+  "version_date": "2026-09-21",
+  "requirements": "- A homebrew-enabled PS Vita or PS TV",
+  "size": 7969178,
+  "status": "Verified",
+  "links": [
+    {
+      "type": "Download",
+      "name": "VPK",
+      "url": "https://archive.org/download/paper-mario-ps-vita/PaperMarioVita%20v0.1.0.vpk",
+      "size": 7969178,
+      "recommended": true
+    },
+    {
+      "type": "Game Files",
+      "name": "Game Files USA",
+      "url": "https://archive.org/download/paper-mario-ps-vita/Game%20Files.zip",
+      "size": 41943040,
+      "extract_path": "ux0:data/"
+    },
+    {
+      "type": "Repository",
+      "name": "Github",
+      "url": "https://github.com/kaziema/pmvita"
+    }
+  ],
+  "icon": "https://archive.org/download/paper-mario-ps-vita/icon0.png",
+  "screenshots": [
+    "https://archive.org/download/paper-mario-ps-vita/shot0.png"
+  ]
+}
