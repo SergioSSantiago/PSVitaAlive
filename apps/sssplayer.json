@@ -15,17 +15,17 @@
     "video-player",
     "streaming"
   ],
-  "version": "1.1.27",
+  "version": "1.1.28",
   "version_date": "2026-09-23",
   "requirements": "PS Vita / PSTV with HENkaku / enso. Network features need Wi-Fi.",
-  "size": 49061793,
+  "size": 49062259,
   "status": "Verified",
   "links": [
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://github.com/SergioSSantiago/SSSPlayer/releases/download/v1.1.27/SSSPlayer-1.1.27.vpk",
-      "size": 49061793,
+      "url": "https://github.com/SergioSSantiago/SSSPlayer/releases/download/v1.1.28/SSSPlayer-1.1.28.vpk",
+      "size": 49062259,
       "recommended": true
     },
     {
