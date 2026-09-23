@@ -2,8 +2,8 @@
   "id": "sssplayer",
   "title_id": "SSSP00001",
   "name": "SSSPlayer",
-  "description": "Music and video player for PS Vita by SergioSSantiago. EQ, visualizer, playlists and themes; H.264 video with precise seek; SMB/SFTP/WebDAV/Jellyfin; YouTube search/play/download.",
-  "long_description": "SSSPlayer is an all-in-one media player for PlayStation Vita by SergioSSantiago.\n\nMusic:\n- Browse ux0:/music and uma0:/music (MP3, FLAC, OGG)\n- Now Playing with touch scrub on the progress bar\n- 10-band equalizer, spectrum visualizer, M3U playlists\n- Theme system (Terminus CRT theme by default)\n\nVideo:\n- Browse ux0:/video, uma0:/video, ux0:/movies, uma0:/movies\n- Hardware H.264 playback with exact seek / scrub\n- Subtitles and audio tracks\n- Network sources: SMB, SFTP, WebDAV, Jellyfin\n\nInstall:\n1. Download SSSPlayer-x.y.z.vpk from GitHub Releases\n2. Enable FTP in VitaShell\n3. Copy the VPK to ux0: with Cyberduck\n4. Install from VitaShell\n\nCredits: built by SergioSSantiago. Thanks to VitaWave and VitaMediaDeck \u2014 SSSPlayer reuses foundations from both projects.\n\nTITLEID: SSSP00001\nData: ux0:data/SSSPlayer/\nLicense: GPL-3.0-only",
+  "description": "Music and video player for PS Vita by SergioSSantiago. VitaWave-style music (EQ, visualizer, playlists, themes), VitaMediaDeck-class H.264 video with precise seek, network streaming (SMB, SFTP, WebDAV, Jellyfin), plus YouTube search/play/download (~360p) and in-app update check.",
+  "long_description": "SSSPlayer is an all-in-one media player for PlayStation Vita by SergioSSantiago.\n\nMusic:\n- Browse ux0:/music and uma0:/music (MP3, FLAC, OGG)\n- Now Playing with touch scrub on the progress bar\n- 10-band equalizer, spectrum visualizer, M3U playlists\n- Theme system (Terminus CRT theme by default)\n\nVideo:\n- Browse ux0:/video, uma0:/video, ux0:/movies, uma0:/movies\n- Hardware H.264 playback with exact seek / scrub\n- Subtitles and audio tracks\n- Network sources: SMB, SFTP, WebDAV, Jellyfin\n\nInstall:\n1. Download SSSPlayer-x.y.z.vpk from GitHub Releases\n2. Enable FTP in VitaShell\n3. Copy the VPK to ux0: with Cyberduck\n4. Install from VitaShell\n\nCredits: built by SergioSSantiago. Thanks to VitaWave and VitaMediaDeck — SSSPlayer reuses foundations from both projects.\n\nTITLEID: SSSP00001\nData: ux0:data/SSSPlayer/\nLicense: GPL-3.0-only",
   "author_ids": [
     "sergiossantiago"
   ],
@@ -15,17 +15,17 @@
     "video-player",
     "streaming"
   ],
-  "version": "1.1.28",
-  "version_date": "2026-09-23",
+  "version": "1.1.33",
+  "version_date": "2026-09-24",
   "requirements": "PS Vita / PSTV with HENkaku / enso. Network features need Wi-Fi.",
-  "size": 49062259,
+  "size": 49061565,
   "status": "Verified",
   "links": [
     {
       "type": "Download",
       "name": "VPK",
-      "url": "https://github.com/SergioSSantiago/SSSPlayer/releases/download/v1.1.28/SSSPlayer-1.1.28.vpk",
-      "size": 49062259,
+      "url": "https://github.com/SergioSSantiago/SSSPlayer/releases/download/v1.1.33/SSSPlayer-1.1.33.vpk",
+      "size": 49061565,
       "recommended": true
     },
     {
